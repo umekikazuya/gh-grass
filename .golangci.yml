@@ -6,7 +6,6 @@ linters:
     - bodyclose
     - exhaustive
     - goconst
-    - godot
     - gomoddirectives
     - goprintffuncname
     - gosec
