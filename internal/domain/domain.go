@@ -10,11 +10,6 @@ type User struct {
 	Login string
 }
 
-// Organization はGithub Organizationを表現
-type Organization struct {
-	Login string
-}
-
 // Contribution は指定日のGithub Contributionの数を表現
 type Contribution struct {
 	Date  time.Time
