@@ -137,4 +137,3 @@ func (r *GitHubRepository) GetContributions(ctx context.Context, username string
 	// If not found in the returned calendar (should not happen if date is valid)
 	return &domain.Contribution{Date: date, Count: 0}, nil
 }
-

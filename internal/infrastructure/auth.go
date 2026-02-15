@@ -21,4 +21,3 @@ func GetGHToken() (string, error) {
 	}
 	return strings.TrimSpace(out.String()), nil
 }
-
