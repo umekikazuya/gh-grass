@@ -66,7 +66,7 @@ func TestGetContributionCount(t *testing.T) {
 
 	date, err := time.Parse("2006-01-02", "2023-10-01")
 	if err != nil {
-		t.Errorf("failed to parse date: %v", err)
+		t.Fatalf("failed to parse date: %v", err)
 	}
 
 	count, err := usecase.GetContributionCount(context.Background(), "testuser", date)
@@ -85,6 +85,9 @@ func TestGetSelf(t *testing.T) {
 	user, err := usecase.GetSelf(context.Background())
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
+	}
+	if user == nil {
+		t.Fatal("expected user, got nil")
 	}
 	if user.Login != "myself" {
 		t.Errorf("expected login 'myself', got %s", user.Login)
@@ -117,7 +120,7 @@ func TestGetContributionCount_Error(t *testing.T) {
 
 	date, err := time.Parse("2006-01-02", "2023-10-01")
 	if err != nil {
-		t.Errorf("failed to parse date: %v", err)
+		t.Fatalf("failed to parse date: %v", err)
 	}
 	_, err = usecase.GetContributionCount(context.Background(), "testuser", date)
 	if err == nil {
