@@ -285,7 +285,9 @@ type contributionMsg struct {
 // 成功時は orgMembersMsg を、失敗時は errMsg を返す。
 func fetchOrgMembersCmd(uc *usecase.GrassUsecase, orgName string) tea.Cmd {
 	return func() tea.Msg {
-		members, err := uc.ListOrganizationMembers(context.Background(), orgName)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		members, err := uc.ListOrganizationMembers(ctx, orgName)
 		if err != nil {
 			return errMsg(err)
 		}
@@ -297,17 +299,19 @@ func fetchOrgMembersCmd(uc *usecase.GrassUsecase, orgName string) tea.Cmd {
 // user が空文字の場合は実行時に現在のユーザーを解決して使用する。コマンド実行時は貢献数取得に成功すると contributionMsg を、エラー発生時は errMsg を返す。
 func checkContributionCmd(uc *usecase.GrassUsecase, user string, date time.Time) tea.Cmd {
 	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 		targetUser := user
 		// If "Self" was selected (empty user), resolve the actual username
 		if targetUser == "" {
-			self, err := uc.GetSelf(context.Background())
+			self, err := uc.GetSelf(ctx)
 			if err != nil {
 				return errMsg(err)
 			}
 			targetUser = self.Login
 		}
 
-		count, err := uc.GetContributionCount(context.Background(), targetUser, date)
+		count, err := uc.GetContributionCount(ctx, targetUser, date)
 		if err != nil {
 			return errMsg(err)
 		}
