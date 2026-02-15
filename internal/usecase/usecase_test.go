@@ -64,7 +64,11 @@ func TestGetContributionCount(t *testing.T) {
 	}
 	usecase := NewGrassUsecase(mockRepo)
 
-	date, _ := time.Parse("2006-01-02", "2023-10-01")
+	date, err := time.Parse("2006-01-02", "2023-10-01")
+	if err != nil {
+		t.Errorf("failed to parse date: %v", err)
+	}
+
 	count, err := usecase.GetContributionCount(context.Background(), "testuser", date)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
@@ -101,5 +105,38 @@ func TestListOrganizationMembers(t *testing.T) {
 	}
 	if len(members) != 2 {
 		t.Errorf("expected 2 members, got %d", len(members))
+	}
+}
+
+func TestGetContributionCount_Error(t *testing.T) {
+	expectedErr := errors.New("repository error")
+	mockRepo := &MockRepository{
+		Err: expectedErr,
+	}
+	usecase := NewGrassUsecase(mockRepo)
+
+	date, err := time.Parse("2006-01-02", "2023-10-01")
+	if err != nil {
+		t.Errorf("failed to parse date: %v", err)
+	}
+	_, err := usecase.GetContributionCount(context.Background(), "testuser", date)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	if err != expectedErr {
+		t.Errorf("expected %v, got %v", expectedErr, err)
+	}
+}
+
+func TestGetSelf_Error(t *testing.T) {
+	expectedErr := errors.New("repository error")
+	mockRepo := &MockRepository{
+		Err: expectedErr,
+	}
+	usecase := NewGrassUsecase(mockRepo)
+
+	_, err := usecase.GetSelf(context.Background())
+	if err == nil {
+		t.Error("expected error, got nil")
 	}
 }
