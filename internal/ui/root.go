@@ -15,6 +15,16 @@ var rootCmd = &cobra.Command{
 	Short: "Check GitHub contributions from the terminal",
 	Long:  `gh-grass is a CLI extension for GitHub that allows you to check contribution counts for yourself, other users, or organization members using an interactive TUI.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// 0. Setup Debug Logging (if DEBUG env var is set)
+		if len(os.Getenv("DEBUG")) > 0 {
+			f, err := tea.LogToFile("debug.log", "debug")
+			if err != nil {
+				fmt.Println("fatal:", err)
+				os.Exit(1)
+			}
+			defer f.Close()
+		}
+
 		// 1. Get Token
 		token, err := infrastructure.GetGHToken()
 		if err != nil {

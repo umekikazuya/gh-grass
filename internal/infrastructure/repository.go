@@ -121,6 +121,9 @@ func (r *GitHubRepository) GetContributions(ctx context.Context, username string
 		return nil, err
 	}
 
+	// Use the date in the original timezone (not UTC) because GitHub API
+	// returns contribution dates based on the user's timezone setting.
+	// Example: JST 2026-02-16 01:56 should match "2026-02-16", not "2026-02-15" (UTC).
 	targetDateStr := date.Format("2006-01-02")
 
 	for _, week := range q.User.ContributionsCollection.ContributionCalendar.Weeks {
