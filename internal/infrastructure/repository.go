@@ -13,6 +13,8 @@ type GitHubRepository struct {
 	client *githubv4.Client
 }
 
+// NewGitHubRepository は指定した GitHub アクセストークンを使用して認証済みの GitHub GraphQL クライアントを初期化し、GitHubRepository を返します。
+// token は GitHub API にアクセスするためのアクセストークン（例: Personal Access Token）です。
 func NewGitHubRepository(token string) *GitHubRepository {
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},

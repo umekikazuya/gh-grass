@@ -57,6 +57,8 @@ type MainModel struct {
 	resultCount int
 }
 
+// NewInitialModel は指定された GrassUsecase を用いて、モード選択リストと入力フィールドを備えた初期の MainModel を生成します.
+// 生成されるモデルはモード選択状態（stateModeSelect）で、リストは "Select Mode" タイトルと三つの選択肢（Self、Specific User、Organization）を持ち、ステータスバーとフィルタリングは無効、テキスト入力はフォーカス済みになります。
 func NewInitialModel(uc *usecase.GrassUsecase) MainModel {
 	// Initialize Mode Selection List
 	items := []list.Item{
@@ -279,6 +281,8 @@ type contributionMsg struct {
 	user  string
 }
 
+// fetchOrgMembersCmd は指定した組織名のメンバー一覧を非同期に取得する tea.Cmd を返す。
+// 成功時は orgMembersMsg を、失敗時は errMsg を返す。
 func fetchOrgMembersCmd(uc *usecase.GrassUsecase, orgName string) tea.Cmd {
 	return func() tea.Msg {
 		members, err := uc.ListOrganizationMembers(context.Background(), orgName)
@@ -289,6 +293,8 @@ func fetchOrgMembersCmd(uc *usecase.GrassUsecase, orgName string) tea.Cmd {
 	}
 }
 
+// checkContributionCmd は、指定されたユーザーと日付の貢献数を取得するコマンドを返す。
+// user が空文字の場合は実行時に現在のユーザーを解決して使用する。コマンド実行時は貢献数取得に成功すると contributionMsg を、エラー発生時は errMsg を返す。
 func checkContributionCmd(uc *usecase.GrassUsecase, user string, date time.Time) tea.Cmd {
 	return func() tea.Msg {
 		targetUser := user
