@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-// GetGHToken executes `gh auth token` to retrieve the active GitHub token.
+// GetGHToken は gh CLI の `gh auth token` を実行してアクティブな GitHub トークンを返します。
+// コマンド実行に失敗した場合は空文字とエラーを返します（エラーには gh がインストールされていないか認証されていない可能性を示す旨が含まれます）。
 func GetGHToken() (string, error) {
 	cmd := exec.Command("gh", "auth", "token")
 	var out bytes.Buffer

@@ -34,6 +34,8 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+// Execute はルートの Cobra コマンドを実行します。
+// 実行中にエラーが発生した場合はエラーを標準出力に表示してプロセスをステータス 1 で終了します.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

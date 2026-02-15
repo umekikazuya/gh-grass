@@ -11,6 +11,8 @@ type GrassUsecase struct {
 	repo domain.GrassRepository
 }
 
+// NewGrassUsecase は、与えられた domain.GrassRepository を注入して初期化された *GrassUsecase を返します。
+// repo はユースケースが利用するリポジトリ実装です。
 func NewGrassUsecase(repo domain.GrassRepository) *GrassUsecase {
 	return &GrassUsecase{repo: repo}
 }
