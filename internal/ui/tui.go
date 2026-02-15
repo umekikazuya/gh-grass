@@ -92,11 +92,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetWidth(msg.Width)
+		m.list.SetSize(msg.Width, msg.Height)
 		return m, nil
 
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" {
+		if msg.String() == "ctrl+c" || msg.String() == "esc" {
 			return m, tea.Quit
 		}
 
@@ -258,14 +258,14 @@ func (m MainModel) View() string {
 	case stateResult:
 		dateStr := m.targetDate.Format("2006-01-02")
 		return docStyle.Render(fmt.Sprintf(
-			"%s's contributions on %s:\n\n  %d  \n\n(press q to quit)",
+			"%s's contributions on %s:\n\n  %d  \n\n(press q or esc to quit)",
 			m.targetUser,
 			dateStr,
 			m.resultCount,
 		))
 
 	case stateError:
-		return docStyle.Render(fmt.Sprintf("Error occurred:\n\n%v\n\n(press q to quit)", m.err))
+		return docStyle.Render(fmt.Sprintf("Error occurred:\n\n%v\n\n(press q or esc to quit)", m.err))
 	}
 	return ""
 }
