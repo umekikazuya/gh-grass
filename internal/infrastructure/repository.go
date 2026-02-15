@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/shurcooL/githubv4"
@@ -80,6 +81,9 @@ func (r *GitHubRepository) ListOrgMembers(ctx context.Context, orgName string) (
 }
 
 func (r *GitHubRepository) GetContributions(ctx context.Context, username string, date time.Time) (*domain.Contribution, error) {
+	if username == "" {
+		return nil, fmt.Errorf("username is required")
+	}
 	// API requires generic DateTime, so we use the start and end of the day roughly,
 	// or just the same day with time 00:00:00 to 23:59:59.
 	// Actually, contributionCalendar aggregates by day.
@@ -133,3 +137,4 @@ func (r *GitHubRepository) GetContributions(ctx context.Context, username string
 	// If not found in the returned calendar (should not happen if date is valid)
 	return &domain.Contribution{Date: date, Count: 0}, nil
 }
+

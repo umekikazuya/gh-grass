@@ -12,10 +12,13 @@ import (
 func GetGHToken() (string, error) {
 	cmd := exec.Command("gh", "auth", "token")
 	var out bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("failed to get gh token: %w. Make sure gh cli is installed and authenticated", err)
+		return "", fmt.Errorf("failed to get gh token: %w. stderr: %s. Make sure gh cli is installed and authenticated", err, stderr.String())
 	}
 	return strings.TrimSpace(out.String()), nil
 }
+
