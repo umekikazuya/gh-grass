@@ -15,16 +15,6 @@ var rootCmd = &cobra.Command{
 	Short: "Check GitHub contributions from the terminal",
 	Long:  `gh-grass is a CLI extension for GitHub that allows you to check contribution counts for yourself, other users, or organization members using an interactive TUI.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// 0. Setup Debug Logging (if DEBUG env var is set)
-		if len(os.Getenv("DEBUG")) > 0 {
-			f, err := tea.LogToFile("debug.log", "debug")
-			if err != nil {
-				fmt.Println("fatal:", err)
-				os.Exit(1)
-			}
-			defer f.Close()
-		}
-
 		// 1. Get Token
 		token, err := infrastructure.GetGHToken()
 		if err != nil {
@@ -48,11 +38,10 @@ var rootCmd = &cobra.Command{
 // 実行中にエラーが発生した場合はエラーを標準出力に表示してプロセスをステータス 1 で終了します.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-// Ensure context cancellation if needed?
-// Bubble tea handles signals usually.
-// We will pass context.Background() in the usecase calls for now inside the model.
+// TODO: Bubble Teaがシグナルを処理するため、現時点ではcontext.Background()を使用。
+// 将来的にコンテキストキャンセレーションが必要な場合は再検討。
