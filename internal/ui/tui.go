@@ -3,12 +3,12 @@ package ui
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/umekikazuya/gh-grass/internal/domain"
 	"github.com/umekikazuya/gh-grass/internal/usecase"
 )
@@ -26,11 +26,6 @@ const (
 	stateLoading
 	stateResult
 	stateError
-)
-
-var (
-	docStyle   = lipgloss.NewStyle().Margin(1, 2)
-	titleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF7DB")).Background(lipgloss.Color("#7D56F4")).Padding(0, 1)
 )
 
 // item implements list.Item interface
@@ -52,9 +47,10 @@ type MainModel struct {
 	input textinput.Model
 
 	// State Data
-	targetUser  string
-	targetDate  time.Time
-	resultCount int
+	targetUser       string
+	targetDate       time.Time
+	resultCalendar   *domain.ContributionCalendar
+	resultTargetHits int
 }
 
 // NewInitialModel は指定された GrassUsecase を用いて、モード選択リストと入力フィールドを備えた初期の MainModel を生成します.
@@ -118,7 +114,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case contributionMsg:
-		m.resultCount = msg.count
+		m.resultCalendar = msg.calendar
+		m.resultTargetHits = msg.targetCount
 		m.targetUser = msg.user
 		m.state = stateResult
 		return m, nil
@@ -256,13 +253,7 @@ func (m MainModel) View() string {
 		return docStyle.Render("Loading... please wait.")
 
 	case stateResult:
-		dateStr := m.targetDate.Format("2006-01-02")
-		return docStyle.Render(fmt.Sprintf(
-			"%s's contributions on %s:\n\n  %d  \n\n(press q or esc to quit)",
-			m.targetUser,
-			dateStr,
-			m.resultCount,
-		))
+		return docStyle.Render(renderGrassGraph(m.resultCalendar, m.targetUser, m.targetDate, m.resultTargetHits))
 
 	case stateError:
 		return docStyle.Render(fmt.Sprintf("Error occurred:\n\n%v\n\n(press q or esc to quit)", m.err))
@@ -277,8 +268,9 @@ type errMsg error
 type orgMembersMsg []domain.User
 
 type contributionMsg struct {
-	count int
-	user  string
+	calendar    *domain.ContributionCalendar
+	targetCount int
+	user        string
 }
 
 // fetchOrgMembersCmd は指定した組織名のメンバー一覧を非同期に取得する tea.Cmd を返す。
@@ -295,8 +287,11 @@ func fetchOrgMembersCmd(uc *usecase.GrassUsecase, orgName string) tea.Cmd {
 	}
 }
 
-// checkContributionCmd は、指定されたユーザーと日付の貢献数を取得するコマンドを返す。
-// user が空文字の場合は実行時に現在のユーザーを解決して使用する。コマンド実行時は貢献数取得に成功すると contributionMsg を、エラー発生時は errMsg を返す。
+// grassWeeks は stateResult で描画するコントリビューションカレンダーの週数。
+const grassWeeks = 4
+
+// checkContributionCmd は、指定されたユーザーと日付を終点とする直近数週間のカレンダーを取得するコマンドを返す。
+// user が空文字の場合は実行時に現在のユーザーを解決して使用する。成功時は contributionMsg を、エラー発生時は errMsg を返す。
 func checkContributionCmd(uc *usecase.GrassUsecase, user string, date time.Time) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -311,10 +306,60 @@ func checkContributionCmd(uc *usecase.GrassUsecase, user string, date time.Time)
 			targetUser = self.Login
 		}
 
-		count, err := uc.GetContributionCount(ctx, targetUser, date)
+		cal, err := uc.GetContributionCalendar(ctx, targetUser, date, grassWeeks)
 		if err != nil {
 			return errMsg(err)
 		}
-		return contributionMsg{count: count, user: targetUser}
+
+		targetCount := 0
+		targetStr := date.Format("2006-01-02")
+		for _, week := range cal.Weeks {
+			for _, day := range week {
+				if day.Date.Format("2006-01-02") == targetStr {
+					targetCount = day.Count
+				}
+			}
+		}
+
+		return contributionMsg{calendar: cal, targetCount: targetCount, user: targetUser}
 	}
+}
+
+// renderGrassGraph はカレンダーを7列のヒートマップとして整形する。
+// target と同じ日付のセルは強調表示され、target より未来の日付は "-" になる。
+func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time.Time, targetCount int) string {
+	if cal == nil || len(cal.Weeks) == 0 {
+		return fmt.Sprintf("%s's contributions on %s:\n\n  (no data)\n\n(press q or esc to quit)",
+			user, target.Format("2006-01-02"))
+	}
+
+	var b strings.Builder
+
+	b.WriteString("        Sun  Mon  Tue  Wed  Thu  Fri  Sat\n")
+
+	targetStr := target.Format("2006-01-02")
+	for _, week := range cal.Weeks {
+		if len(week) == 0 {
+			continue
+		}
+		_, wn := week[0].Date.ISOWeek()
+		fmt.Fprintf(&b, "  W%02d  ", wn)
+
+		for _, day := range week {
+			char := grassIntensity[intensityIndex(day.Count)]
+			if day.Date.After(target) {
+				char = "-"
+			}
+			if day.Date.Format("2006-01-02") == targetStr {
+				b.WriteString(grassTargetStyle.Render("["+char+"]") + "  ")
+			} else {
+				b.WriteString(" " + char + "   ")
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	fmt.Fprintf(&b, "\n  %s's contributions on %s:  %d\n", user, target.Format("2006-01-02"), targetCount)
+	b.WriteString("\n(press q or esc to quit)")
+	return b.String()
 }

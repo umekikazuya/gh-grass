@@ -54,6 +54,36 @@ func (m *MockRepository) GetContributions(ctx context.Context, username string, 
 	return &domain.Contribution{Date: date, Count: 0}, nil
 }
 
+func (m *MockRepository) GetContributionCalendar(ctx context.Context, username string, from, to time.Time) (*domain.ContributionCalendar, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+
+	// from を直近の日曜に揃えて 7 日単位で週を組み立てる（GitHub API に近い挙動）。
+	start := from
+	for start.Weekday() != time.Sunday {
+		start = start.AddDate(0, 0, -1)
+	}
+
+	var weeks [][]domain.ContributionDay
+	for cursor := start; !cursor.After(to); {
+		days := make([]domain.ContributionDay, 0, 7)
+		for i := 0; i < 7 && !cursor.After(to); i++ {
+			count := 0
+			if userContribs, ok := m.Contributions[username]; ok {
+				if c, ok := userContribs[cursor.Format("2006-01-02")]; ok {
+					count = c
+				}
+			}
+			days = append(days, domain.ContributionDay{Date: cursor, Count: count})
+			cursor = cursor.AddDate(0, 0, 1)
+		}
+		weeks = append(weeks, days)
+	}
+
+	return &domain.ContributionCalendar{Weeks: weeks}, nil
+}
+
 func TestGetContributionCount(t *testing.T) {
 	mockRepo := &MockRepository{
 		Contributions: map[string]map[string]int{
@@ -128,6 +158,47 @@ func TestGetContributionCount_Error(t *testing.T) {
 	}
 	if err != expectedErr {
 		t.Errorf("expected %v, got %v", expectedErr, err)
+	}
+}
+
+func TestGetContributionCalendar(t *testing.T) {
+	mockRepo := &MockRepository{
+		Contributions: map[string]map[string]int{
+			"testuser": {
+				"2026-04-14": 3,
+				"2026-04-20": 5,
+			},
+		},
+	}
+	usecase := NewGrassUsecase(mockRepo)
+
+	until, err := time.Parse("2006-01-02", "2026-04-20")
+	if err != nil {
+		t.Fatalf("failed to parse date: %v", err)
+	}
+
+	cal, err := usecase.GetContributionCalendar(context.Background(), "testuser", until, 4)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if cal == nil || len(cal.Weeks) == 0 {
+		t.Fatal("expected non-empty calendar")
+	}
+
+	found := map[string]int{}
+	for _, week := range cal.Weeks {
+		for _, day := range week {
+			found[day.Date.Format("2006-01-02")] = day.Count
+		}
+	}
+	if found["2026-04-20"] != 5 {
+		t.Errorf("expected count 5 on 2026-04-20, got %d", found["2026-04-20"])
+	}
+	if found["2026-04-14"] != 3 {
+		t.Errorf("expected count 3 on 2026-04-14, got %d", found["2026-04-14"])
+	}
+	if _, ok := found["2026-04-20"]; !ok {
+		t.Error("target date missing from calendar")
 	}
 }
 
