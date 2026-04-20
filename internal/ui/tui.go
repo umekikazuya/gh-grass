@@ -368,7 +368,7 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 			}
 		}
 
-		trailingEmpty := 7 - leadingEmpty - len(week)
+		trailingEmpty := max(0, 7-leadingEmpty-len(week))
 		for i := 0; i < trailingEmpty; i++ {
 			b.WriteString(emptyCell)
 		}
