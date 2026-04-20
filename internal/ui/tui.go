@@ -338,6 +338,7 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 	b.WriteString("        Sun  Mon  Tue  Wed  Thu  Fri  Sat\n")
 
 	targetStr := target.Format("2006-01-02")
+	emptyCell := "     "
 	for _, week := range cal.Weeks {
 		if len(week) == 0 {
 			continue
@@ -345,9 +346,14 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 		_, wn := week[0].Date.ISOWeek()
 		fmt.Fprintf(&b, "  W%02d  ", wn)
 
+		leadingEmpty := int(week[0].Date.Weekday())
+		for i := 0; i < leadingEmpty; i++ {
+			b.WriteString(emptyCell)
+		}
+
 		for _, day := range week {
 			char := grassIntensity[intensityIndex(day.Count)]
-			if day.Date.After(target) {
+			if day.Date.Format("2006-01-02") > targetStr {
 				char = "-"
 			}
 			if day.Date.Format("2006-01-02") == targetStr {
@@ -355,6 +361,11 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 			} else {
 				b.WriteString(" " + char + "   ")
 			}
+		}
+
+		trailingEmpty := 7 - leadingEmpty - len(week)
+		for i := 0; i < trailingEmpty; i++ {
+			b.WriteString(emptyCell)
 		}
 		b.WriteString("\n")
 	}
