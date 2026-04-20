@@ -15,10 +15,8 @@ var grassPalette = []lipgloss.Color{
 var (
 	docStyle = lipgloss.NewStyle().Margin(1, 2)
 
-	// grassIntensity は強度（0〜4）ごとの描画スタイル。■ を Foreground でパレット色に塗る。
+	// grassIntensity は強度（0〜4）ごとの描画スタイル。グリフを Foreground でパレット色に塗る。
 	grassIntensity = buildGrassStyles()
-
-	grassTargetStyle = lipgloss.NewStyle().Bold(true).Underline(true)
 )
 
 func buildGrassStyles() []lipgloss.Style {

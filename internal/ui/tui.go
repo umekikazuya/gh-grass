@@ -338,7 +338,7 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 		weeks = weeks[len(weeks)-grassWeeks:]
 	}
 
-	const glyph = "■"
+	const glyph = "█"
 
 	var b strings.Builder
 
@@ -364,11 +364,10 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 			case dayStr > targetStr:
 				b.WriteString("  -  ")
 			case dayStr == targetStr:
-				cell := grassIntensity[intensityIndex(day.Count)].Render(glyph)
-				b.WriteString(grassTargetStyle.Render("["+cell+"]") + "  ")
+				style := grassIntensity[intensityIndex(day.Count)].Bold(true).Underline(true)
+				b.WriteString("[" + style.Render(glyph) + "]  ")
 			default:
-				cell := grassIntensity[intensityIndex(day.Count)].Render(glyph)
-				b.WriteString(" " + cell + "   ")
+				b.WriteString(" " + grassIntensity[intensityIndex(day.Count)].Render(glyph) + "   ")
 			}
 		}
 
