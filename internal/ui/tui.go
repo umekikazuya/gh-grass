@@ -333,13 +333,18 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 			user, target.Format("2006-01-02"))
 	}
 
+	weeks := cal.Weeks
+	if len(weeks) > grassWeeks {
+		weeks = weeks[len(weeks)-grassWeeks:]
+	}
+
 	var b strings.Builder
 
 	b.WriteString("        Sun  Mon  Tue  Wed  Thu  Fri  Sat\n")
 
 	targetStr := target.Format("2006-01-02")
 	emptyCell := "     "
-	for _, week := range cal.Weeks {
+	for _, week := range weeks {
 		if len(week) == 0 {
 			continue
 		}
