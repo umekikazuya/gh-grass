@@ -57,6 +57,7 @@ type MainModel struct {
 	resultTargetHits int
 	loadingLabel     string
 	history          []sessionState
+	members          []domain.User // stateSelectMember の復元用
 }
 
 // NewInitialModel は指定された GrassUsecase を用いて、モード選択リストと入力フィールドを備えた初期の MainModel を生成します.
@@ -143,6 +144,14 @@ func (m MainModel) restoreState(s sessionState) MainModel {
 		})
 		m.list.Title = "Select Date"
 		m.list.ResetSelected()
+	case stateSelectMember:
+		items := make([]list.Item, len(m.members))
+		for i, u := range m.members {
+			items[i] = item{title: u.Login, desc: "Organization Member"}
+		}
+		m.list.SetItems(items)
+		m.list.Title = "Select Member"
+		m.list.ResetSelected()
 	}
 	return m
 }
@@ -201,6 +210,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case orgMembersMsg:
+		m.members = []domain.User(msg)
 		items := make([]list.Item, len(msg))
 		for i, u := range msg {
 			items[i] = item{title: u.Login, desc: "Organization Member"}
@@ -269,7 +279,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				t, err := time.Parse("2006-01-02", val)
 				if err != nil {
 					m.err = fmt.Errorf("invalid date format (use YYYY-MM-DD): %v", err)
-					m.state = stateError
+					m = m.pushState(stateError)
 					return m, nil
 				}
 				m.targetDate = t
