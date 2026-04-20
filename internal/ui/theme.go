@@ -2,14 +2,32 @@ package ui
 
 import "github.com/charmbracelet/lipgloss"
 
+// GitHub のコントリビューショングラフ相当の緑濃淡（強度 0〜4）。
+// 0: 非コントリビュート、1〜4: 濃くなるほど多い。
+var grassPalette = []lipgloss.Color{
+	lipgloss.Color("#2d333b"),
+	lipgloss.Color("#0e4429"),
+	lipgloss.Color("#006d32"),
+	lipgloss.Color("#26a641"),
+	lipgloss.Color("#39d353"),
+}
+
 var (
 	docStyle = lipgloss.NewStyle().Margin(1, 2)
 
-	// grassIntensity は強度（0〜4）ごとの描画文字。PR2 で色付きスタイルに差し替える前提。
-	grassIntensity = []string{"·", "░", "▒", "▓", "█"}
+	// grassIntensity は強度（0〜4）ごとの描画スタイル。■ を Foreground でパレット色に塗る。
+	grassIntensity = buildGrassStyles()
 
 	grassTargetStyle = lipgloss.NewStyle().Bold(true).Underline(true)
 )
+
+func buildGrassStyles() []lipgloss.Style {
+	styles := make([]lipgloss.Style, len(grassPalette))
+	for i, c := range grassPalette {
+		styles[i] = lipgloss.NewStyle().Foreground(c)
+	}
+	return styles
+}
 
 // intensityIndex は count から grassIntensity のインデックス（0〜4）を返す。
 func intensityIndex(count int) int {

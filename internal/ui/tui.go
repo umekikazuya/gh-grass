@@ -338,6 +338,8 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 		weeks = weeks[len(weeks)-grassWeeks:]
 	}
 
+	const glyph = "■"
+
 	var b strings.Builder
 
 	b.WriteString("        Sun  Mon  Tue  Wed  Thu  Fri  Sat\n")
@@ -357,14 +359,16 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 		}
 
 		for _, day := range week {
-			char := grassIntensity[intensityIndex(day.Count)]
-			if day.Date.Format("2006-01-02") > targetStr {
-				char = "-"
-			}
-			if day.Date.Format("2006-01-02") == targetStr {
-				b.WriteString(grassTargetStyle.Render("["+char+"]") + "  ")
-			} else {
-				b.WriteString(" " + char + "   ")
+			dayStr := day.Date.Format("2006-01-02")
+			switch {
+			case dayStr > targetStr:
+				b.WriteString("  -  ")
+			case dayStr == targetStr:
+				cell := grassIntensity[intensityIndex(day.Count)].Render(glyph)
+				b.WriteString(grassTargetStyle.Render("["+cell+"]") + "  ")
+			default:
+				cell := grassIntensity[intensityIndex(day.Count)].Render(glyph)
+				b.WriteString(" " + cell + "   ")
 			}
 		}
 
@@ -375,7 +379,31 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 		b.WriteString("\n")
 	}
 
+	total, streak := summarizeCalendar(weeks, target)
+
 	fmt.Fprintf(&b, "\n  %s's contributions on %s:  %d\n", user, target.Format("2006-01-02"), targetCount)
+	fmt.Fprintf(&b, "  Total (%d weeks):  %d  |  Current streak:  %d day(s)\n", len(weeks), total, streak)
 	b.WriteString("\n(press q or esc to quit)")
 	return b.String()
+}
+
+// summarizeCalendar は表示範囲の合計コントリビューション数と、target を終点とする連続コントリビューション日数を返す。
+// target 自体のカウントが 0 の場合、streak は 0。
+func summarizeCalendar(weeks [][]domain.ContributionDay, target time.Time) (total, streak int) {
+	counts := map[string]int{}
+	for _, week := range weeks {
+		for _, day := range week {
+			total += day.Count
+			counts[day.Date.Format("2006-01-02")] = day.Count
+		}
+	}
+
+	for cursor := target; ; cursor = cursor.AddDate(0, 0, -1) {
+		c, ok := counts[cursor.Format("2006-01-02")]
+		if !ok || c <= 0 {
+			break
+		}
+		streak++
+	}
+	return total, streak
 }
