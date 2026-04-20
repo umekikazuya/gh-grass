@@ -140,3 +140,50 @@ func (r *GitHubRepository) GetContributions(ctx context.Context, username string
 	// If not found in the returned calendar (should not happen if date is valid)
 	return &domain.Contribution{Date: date, Count: 0}, nil
 }
+
+func (r *GitHubRepository) GetContributionCalendar(ctx context.Context, username string, from, to time.Time) (*domain.ContributionCalendar, error) {
+	if username == "" {
+		return nil, fmt.Errorf("username is required")
+	}
+
+	var q struct {
+		User struct {
+			ContributionsCollection struct {
+				ContributionCalendar struct {
+					Weeks []struct {
+						ContributionDays []struct {
+							Date              githubv4.String
+							ContributionCount githubv4.Int
+						}
+					}
+				}
+			} `graphql:"contributionsCollection(from: $from, to: $to)"`
+		} `graphql:"user(login: $user)"`
+	}
+
+	variables := map[string]interface{}{
+		"user": githubv4.String(username),
+		"from": githubv4.DateTime{Time: from},
+		"to":   githubv4.DateTime{Time: to},
+	}
+
+	err := r.client.Query(ctx, &q, variables)
+	if err != nil {
+		return nil, err
+	}
+
+	weeks := make([][]domain.ContributionDay, 0, len(q.User.ContributionsCollection.ContributionCalendar.Weeks))
+	for _, week := range q.User.ContributionsCollection.ContributionCalendar.Weeks {
+		days := make([]domain.ContributionDay, 0, len(week.ContributionDays))
+		for _, day := range week.ContributionDays {
+			d, perr := time.Parse("2006-01-02", string(day.Date))
+			if perr != nil {
+				return nil, fmt.Errorf("parse contribution date %q: %w", string(day.Date), perr)
+			}
+			days = append(days, domain.ContributionDay{Date: d, Count: int(day.ContributionCount)})
+		}
+		weeks = append(weeks, days)
+	}
+
+	return &domain.ContributionCalendar{Weeks: weeks}, nil
+}

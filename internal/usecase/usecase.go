@@ -36,3 +36,9 @@ func (u *GrassUsecase) GetSelf(ctx context.Context) (*domain.User, error) {
 	// Assuming empty string implies "self" for the repository
 	return u.repo.GetUser(ctx, "")
 }
+
+// GetContributionCalendar は until を終点とする weeks 週間分のカレンダーを返す。
+func (u *GrassUsecase) GetContributionCalendar(ctx context.Context, username string, until time.Time, weeks int) (*domain.ContributionCalendar, error) {
+	from := until.AddDate(0, 0, -(weeks*7 - 1))
+	return u.repo.GetContributionCalendar(ctx, username, from, until)
+}
