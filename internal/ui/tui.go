@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -27,6 +28,7 @@ const (
 	stateLoading
 	stateResult
 	stateError
+	stateHelp
 )
 
 // item implements list.Item interface
@@ -54,6 +56,8 @@ type MainModel struct {
 	resultCalendar   *domain.ContributionCalendar
 	resultTargetHits int
 	loadingLabel     string
+	history          []sessionState
+	members          []domain.User // stateSelectMember の復元用
 }
 
 // NewInitialModel は指定された GrassUsecase を用いて、モード選択リストと入力フィールドを備えた初期の MainModel を生成します.
@@ -90,6 +94,87 @@ func (m MainModel) Init() tea.Cmd {
 	return m.spinner.Tick
 }
 
+// pushState は次の状態に遷移する前に現在の状態を履歴に積む。
+func (m MainModel) pushState(next sessionState) MainModel {
+	m.history = append(m.history, m.state)
+	m.state = next
+	return m
+}
+
+// popState は履歴から直近の状態を取り出して復元する。履歴が空なら何もしない。
+// 復元対象のリスト/入力 UI を必要に応じて再初期化する。
+func (m MainModel) popState() (MainModel, bool) {
+	if len(m.history) == 0 {
+		return m, false
+	}
+	prev := m.history[len(m.history)-1]
+	m.history = m.history[:len(m.history)-1]
+	m.state = prev
+	m.err = nil
+	m.loadingLabel = ""
+	m = m.restoreState(prev)
+	return m, true
+}
+
+// restoreState は復元先の状態に合わせて list/input を再設定する。
+func (m MainModel) restoreState(s sessionState) MainModel {
+	switch s {
+	case stateModeSelect:
+		m.list.SetItems([]list.Item{
+			item{title: "Self", desc: "Check your own contributions"},
+			item{title: "Specific User", desc: "Check another user's contributions"},
+			item{title: "Organization", desc: "Select a member from an organization"},
+		})
+		m.list.Title = "Select Mode"
+		m.list.ResetSelected()
+	case stateInputUser:
+		m.input.Placeholder = "Username"
+		m.input.SetValue("")
+	case stateInputOrg:
+		m.input.Placeholder = "Organization Name"
+		m.input.SetValue("")
+	case stateInputDate:
+		m.input.Placeholder = "YYYY-MM-DD"
+		m.input.SetValue("")
+	case stateDateSelect:
+		m.list.SetItems([]list.Item{
+			item{title: "Today", desc: time.Now().Format("2006-01-02")},
+			item{title: "Yesterday", desc: time.Now().AddDate(0, 0, -1).Format("2006-01-02")},
+			item{title: "Other (Date)", desc: "Specify a custom date"},
+		})
+		m.list.Title = "Select Date"
+		m.list.ResetSelected()
+	case stateSelectMember:
+		items := make([]list.Item, len(m.members))
+		for i, u := range m.members {
+			items[i] = item{title: u.Login, desc: "Organization Member"}
+		}
+		m.list.SetItems(items)
+		m.list.Title = "Select Member"
+		m.list.ResetSelected()
+	}
+	return m
+}
+
+// backAvailable は b キーによる戻る操作を現在の状態で許可するか返す。
+// テキスト入力中は b を文字として扱うため無効、ロード中も無効。
+func (m MainModel) backAvailable() bool {
+	switch m.state {
+	case stateInputUser, stateInputOrg, stateInputDate, stateLoading:
+		return false
+	}
+	return len(m.history) > 0
+}
+
+// helpAvailable は ? キーでヘルプを開くのを現在の状態で許可するか返す。
+func (m MainModel) helpAvailable() bool {
+	switch m.state {
+	case stateInputUser, stateInputOrg, stateInputDate, stateLoading, stateHelp:
+		return false
+	}
+	return true
+}
+
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -104,8 +189,18 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, spCmd
 
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" || msg.String() == "esc" {
+		if key.Matches(msg, keys.Quit) {
 			return m, tea.Quit
+		}
+		if key.Matches(msg, keys.Help) && m.helpAvailable() {
+			m = m.pushState(stateHelp)
+			return m, nil
+		}
+		if key.Matches(msg, keys.Back) && m.backAvailable() {
+			popped, ok := m.popState()
+			if ok {
+				return popped, nil
+			}
 		}
 
 	// --- Async Result Handling ---
@@ -115,6 +210,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case orgMembersMsg:
+		m.members = []domain.User(msg)
 		items := make([]list.Item, len(msg))
 		for i, u := range msg {
 			items[i] = item{title: u.Login, desc: "Organization Member"}
@@ -122,6 +218,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.list.SetItems(items)
 		m.list.Title = "Select Member"
 		m.list.ResetSelected()
+		m.loadingLabel = ""
 		m.state = stateSelectMember
 		return m, nil
 
@@ -129,6 +226,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resultCalendar = msg.calendar
 		m.resultTargetHits = msg.targetCount
 		m.targetUser = msg.user
+		m.loadingLabel = ""
 		m.state = stateResult
 		return m, nil
 	}
@@ -139,7 +237,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateModeSelect:
 		var lstCmd tea.Cmd
 		m.list, lstCmd = m.list.Update(msg)
-		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "enter" {
+		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
 			i, ok := m.list.SelectedItem().(item)
 			if ok {
 				switch i.title {
@@ -147,12 +245,12 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.targetUser = "" // Will be resolved to current user later
 					return m.switchToDateSelect()
 				case "Specific User":
-					m.state = stateInputUser
+					m = m.pushState(stateInputUser)
 					m.input.Placeholder = "Username"
 					m.input.SetValue("")
 					return m, nil
 				case "Organization":
-					m.state = stateInputOrg
+					m = m.pushState(stateInputOrg)
 					m.input.Placeholder = "Organization Name"
 					m.input.SetValue("")
 					return m, nil
@@ -164,7 +262,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateInputUser, stateInputOrg, stateInputDate:
 		var tiCmd tea.Cmd
 		m.input, tiCmd = m.input.Update(msg)
-		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "enter" {
+		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
 			val := m.input.Value()
 			if val == "" {
 				return m, nil // Ignore empty input
@@ -174,56 +272,44 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.targetUser = val
 				return m.switchToDateSelect()
 			} else if m.state == stateInputOrg {
-				m.state = stateLoading
+				m = m.pushState(stateLoading)
 				m.loadingLabel = "Fetching organization members..."
 				return m, fetchOrgMembersCmd(m.uc, val)
 			} else if m.state == stateInputDate {
 				t, err := time.Parse("2006-01-02", val)
 				if err != nil {
 					m.err = fmt.Errorf("invalid date format (use YYYY-MM-DD): %v", err)
-					m.state = stateError
+					m = m.pushState(stateError)
 					return m, nil
 				}
 				m.targetDate = t
-				m.state = stateLoading
+				m = m.pushState(stateLoading)
 				m.loadingLabel = "Fetching contributions..."
 				return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
 			}
 		}
 		return m, tiCmd
 
-	case stateSelectMember:
-		var lstCmd tea.Cmd
-		m.list, lstCmd = m.list.Update(msg)
-		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "enter" {
-			i, ok := m.list.SelectedItem().(item)
-			if ok {
-				m.targetUser = i.title
-				return m.switchToDateSelect()
-			}
-		}
-		return m, lstCmd
-
 	case stateDateSelect:
 		var lstCmd tea.Cmd
 		m.list, lstCmd = m.list.Update(msg)
-		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "enter" {
+		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
 			i, ok := m.list.SelectedItem().(item)
 			if ok {
 				today := time.Now()
 				switch i.title {
 				case "Today":
 					m.targetDate = today
-					m.state = stateLoading
+					m = m.pushState(stateLoading)
 					m.loadingLabel = "Fetching contributions..."
 					return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
 				case "Yesterday":
 					m.targetDate = today.AddDate(0, 0, -1)
-					m.state = stateLoading
+					m = m.pushState(stateLoading)
 					m.loadingLabel = "Fetching contributions..."
 					return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
 				case "Other (Date)":
-					m.state = stateInputDate
+					m = m.pushState(stateInputDate)
 					m.input.Placeholder = "YYYY-MM-DD"
 					m.input.SetValue("")
 					return m, nil
@@ -232,8 +318,20 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, lstCmd
 
-	case stateResult, stateError:
-		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "q" {
+	case stateSelectMember:
+		var lstCmd tea.Cmd
+		m.list, lstCmd = m.list.Update(msg)
+		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
+			i, ok := m.list.SelectedItem().(item)
+			if ok {
+				m.targetUser = i.title
+				return m.switchToDateSelect()
+			}
+		}
+		return m, lstCmd
+
+	case stateResult, stateError, stateHelp:
+		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.DoneKey) {
 			return m, tea.Quit
 		}
 	}
@@ -250,7 +348,7 @@ func (m MainModel) switchToDateSelect() (MainModel, tea.Cmd) {
 	m.list.SetItems(items)
 	m.list.Title = "Select Date"
 	m.list.ResetSelected()
-	m.state = stateDateSelect
+	m = m.pushState(stateDateSelect)
 	return m, nil
 }
 
@@ -273,12 +371,38 @@ func (m MainModel) View() string {
 		return docStyle.Render(m.spinner.View() + " " + label)
 
 	case stateResult:
-		return docStyle.Render(renderGrassGraph(m.resultCalendar, m.targetUser, m.targetDate, m.resultTargetHits))
+		return docStyle.Render(renderGrassGraph(m.resultCalendar, m.targetUser, m.targetDate, m.resultTargetHits) + "\n" + footerHint(m))
 
 	case stateError:
-		return docStyle.Render(fmt.Sprintf("%s\n\n(press q or esc to quit)", formatError(m.err)))
+		return docStyle.Render(fmt.Sprintf("%s\n\n%s", formatError(m.err), footerHint(m)))
+
+	case stateHelp:
+		return docStyle.Render(renderHelp() + "\n\n" + footerHint(m))
 	}
 	return ""
+}
+
+// footerHint は画面下部に出すキーバインドヒント。backAvailable/helpAvailable に応じて項目を出し分ける。
+func footerHint(m MainModel) string {
+	parts := []string{keys.DoneKey.Help().Key + " quit"}
+	if m.backAvailable() {
+		parts = append(parts, keys.Back.Help().Key+" back")
+	}
+	if m.helpAvailable() {
+		parts = append(parts, keys.Help.Help().Key+" help")
+	}
+	return "(" + strings.Join(parts, " | ") + ")"
+}
+
+// renderHelp はヘルプ画面の本文（キーバインド一覧）を返す。
+func renderHelp() string {
+	var b strings.Builder
+	b.WriteString("Keybindings\n\n")
+	for _, binding := range helpEntries() {
+		h := binding.Help()
+		fmt.Fprintf(&b, "  %-12s %s\n", h.Key, h.Desc)
+	}
+	return b.String()
 }
 
 // --- Messages & Commands ---
@@ -375,7 +499,7 @@ func formatError(err error) string {
 // target と同じ日付のセルは強調表示され、target より未来の日付は "-" になる。
 func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time.Time, targetCount int) string {
 	if cal == nil || len(cal.Weeks) == 0 {
-		return fmt.Sprintf("%s's contributions on %s:\n\n  (no data)\n\n(press q or esc to quit)",
+		return fmt.Sprintf("%s's contributions on %s:\n\n  (no data)",
 			user, target.Format("2006-01-02"))
 	}
 
@@ -427,8 +551,7 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 	total, streak := summarizeCalendar(weeks, target)
 
 	fmt.Fprintf(&b, "\n  %s's contributions on %s:  %d\n", user, target.Format("2006-01-02"), targetCount)
-	fmt.Fprintf(&b, "  Total (%d weeks):  %d  |  Current streak:  %d day(s)\n", len(weeks), total, streak)
-	b.WriteString("\n(press q or esc to quit)")
+	fmt.Fprintf(&b, "  Total (%d weeks):  %d  |  Current streak:  %d day(s)", len(weeks), total, streak)
 	return b.String()
 }
 
