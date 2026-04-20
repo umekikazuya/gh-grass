@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/umekikazuya/gh-grass/internal/domain"
@@ -43,14 +44,16 @@ type MainModel struct {
 	err   error
 
 	// UI Components
-	list  list.Model
-	input textinput.Model
+	list    list.Model
+	input   textinput.Model
+	spinner spinner.Model
 
 	// State Data
 	targetUser       string
 	targetDate       time.Time
 	resultCalendar   *domain.ContributionCalendar
 	resultTargetHits int
+	loadingLabel     string
 }
 
 // NewInitialModel は指定された GrassUsecase を用いて、モード選択リストと入力フィールドを備えた初期の MainModel を生成します.
@@ -71,16 +74,20 @@ func NewInitialModel(uc *usecase.GrassUsecase) MainModel {
 	ti := textinput.New()
 	ti.Focus()
 
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+
 	return MainModel{
-		uc:    uc,
-		state: stateModeSelect,
-		list:  l,
-		input: ti,
+		uc:      uc,
+		state:   stateModeSelect,
+		list:    l,
+		input:   ti,
+		spinner: sp,
 	}
 }
 
 func (m MainModel) Init() tea.Cmd {
-	return nil
+	return m.spinner.Tick
 }
 
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -90,6 +97,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.list.SetSize(msg.Width, msg.Height)
 		return m, nil
+
+	case spinner.TickMsg:
+		var spCmd tea.Cmd
+		m.spinner, spCmd = m.spinner.Update(msg)
+		return m, spCmd
 
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" || msg.String() == "esc" {
@@ -163,6 +175,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.switchToDateSelect()
 			} else if m.state == stateInputOrg {
 				m.state = stateLoading
+				m.loadingLabel = "Fetching organization members..."
 				return m, fetchOrgMembersCmd(m.uc, val)
 			} else if m.state == stateInputDate {
 				t, err := time.Parse("2006-01-02", val)
@@ -173,6 +186,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.targetDate = t
 				m.state = stateLoading
+				m.loadingLabel = "Fetching contributions..."
 				return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
 			}
 		}
@@ -201,10 +215,12 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "Today":
 					m.targetDate = today
 					m.state = stateLoading
+					m.loadingLabel = "Fetching contributions..."
 					return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
 				case "Yesterday":
 					m.targetDate = today.AddDate(0, 0, -1)
 					m.state = stateLoading
+					m.loadingLabel = "Fetching contributions..."
 					return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
 				case "Other (Date)":
 					m.state = stateInputDate
@@ -250,13 +266,17 @@ func (m MainModel) View() string {
 		))
 
 	case stateLoading:
-		return docStyle.Render("Loading... please wait.")
+		label := m.loadingLabel
+		if label == "" {
+			label = "Loading..."
+		}
+		return docStyle.Render(m.spinner.View() + " " + label)
 
 	case stateResult:
 		return docStyle.Render(renderGrassGraph(m.resultCalendar, m.targetUser, m.targetDate, m.resultTargetHits))
 
 	case stateError:
-		return docStyle.Render(fmt.Sprintf("Error occurred:\n\n%v\n\n(press q or esc to quit)", m.err))
+		return docStyle.Render(fmt.Sprintf("%s\n\n(press q or esc to quit)", formatError(m.err)))
 	}
 	return ""
 }
@@ -322,6 +342,32 @@ func checkContributionCmd(uc *usecase.GrassUsecase, user string, date time.Time)
 		}
 
 		return contributionMsg{calendar: cal, targetCount: targetCount, user: targetUser}
+	}
+}
+
+// formatError はエラー内容を種別判定してユーザー向けの文面に整形する。
+// 判定できないものは原文を返す。
+func formatError(err error) string {
+	if err == nil {
+		return "Error: unknown error"
+	}
+	msg := err.Error()
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(msg, "Could not resolve to") ||
+		strings.Contains(lower, "not found") ||
+		strings.Contains(lower, "not resolve"):
+		return "Error: user or organization not found. Please check the spelling."
+	case strings.Contains(lower, "deadline exceeded") ||
+		strings.Contains(lower, "timeout"):
+		return "Error: request timed out. Please check your network and try again."
+	case strings.Contains(lower, "invalid date format"):
+		return "Error: invalid date format. Use YYYY-MM-DD."
+	case strings.Contains(lower, "unauthorized") ||
+		strings.Contains(lower, "bad credentials"):
+		return "Error: authentication failed. Run `gh auth login` and try again."
+	default:
+		return "Error: " + msg
 	}
 }
 
