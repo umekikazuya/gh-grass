@@ -2,6 +2,9 @@ version: 2
 
 project_name: gh-grass
 
+release:
+  name_template: "v{{ .Version }}"
+
 before:
   hooks:
     - go mod download
