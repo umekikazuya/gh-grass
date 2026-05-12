@@ -12,6 +12,10 @@ A CLI tool to check GitHub contribution counts from the terminal with an interac
 
 ## Installation
 
+### From GitHub Releases (binary)
+
+Download the archive for your OS/architecture from the [Releases page](https://github.com/umekikazuya/gh-grass/releases), then place `gh-grass` in your `PATH`.
+
 ### From source
 
 ```bash
@@ -25,6 +29,10 @@ Or using `go install`:
 ```bash
 go install github.com/umekikazuya/gh-grass/cmd/gh-grass@latest
 ```
+
+## Release
+
+Tagging a version like `v1.0.0` triggers GitHub Actions + GoReleaser and publishes multi-platform binaries to GitHub Releases.
 
 ## Usage
 
