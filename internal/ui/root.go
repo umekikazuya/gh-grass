@@ -14,6 +14,7 @@ var rootCmd = &cobra.Command{
 	Use:   "gh-grass",
 	Short: "Check GitHub contributions from the terminal",
 	Long:  `gh-grass is a CLI extension for GitHub that allows you to check contribution counts for yourself, other users, or organization members using an interactive TUI.`,
+	Version: version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// 1. Get Token
 		token, err := infrastructure.GetGHToken()
@@ -33,6 +34,8 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 }
+
+var version = "dev"
 
 // Execute はルートの Cobra コマンドを実行します。
 // 実行中にエラーが発生した場合はエラーを標準出力に表示してプロセスをステータス 1 で終了します.
