@@ -1,90 +1,57 @@
 # gh-grass
 
-A CLI tool to check GitHub contribution counts from the terminal with an interactive TUI.
+`gh-grass` is a GitHub CLI extension for quickly checking GitHub contribution activity in your terminal.
 
-## Features
+It is for people who use `gh` daily and want to check their own graph, other users, or organization members without opening the browser.
 
-- View GitHub contribution graphs in your terminal
-- Check your own contributions
-- Search and view other users' contributions
+## At a glance
+
+- Command: `gh grass`
+- Interface: interactive TUI (keyboard-driven)
+- Data source: your authenticated GitHub session (`gh auth login`)
+
+## Quick start (recommended)
+
+```bash
+gh extension install umekikazuya/gh-grass
+gh grass
+```
+
+If the same command is already installed:
+
+```bash
+gh extension install umekikazuya/gh-grass --force
+```
+
+## What you can do
+
+- View your own contribution graph
+- Search and view another user's contributions
 - View organization members' contributions
-- Beautiful TUI interface powered by [Bubble Tea](https://github.com/charmbracelet/bubbletea)
 
-## Installation
+## Requirements
 
-### From GitHub Releases (binary)
+- [GitHub CLI](https://cli.github.com/) (`gh`)
+- Authenticated GitHub session (`gh auth login`)
 
-Download the archive for your OS/architecture from the [Releases page](https://github.com/umekikazuya/gh-grass/releases), then place `gh-grass` in your `PATH`.
+## Alternative installation
 
-### From source
+### Download binary from Releases
 
-```bash
-git clone https://github.com/umekikazuya/gh-grass.git
-cd gh-grass
-go install ./cmd/gh-grass
-```
+Download your platform binary from [Releases](https://github.com/umekikazuya/gh-grass/releases), make it executable, and place it in your `PATH`.
 
-Or using `go install`:
-
-```bash
-go install github.com/umekikazuya/gh-grass/cmd/gh-grass@latest
-```
-
-## Release
-
-Tagging a version like `v1.0.0` triggers GitHub Actions + GoReleaser and publishes multi-platform binaries to GitHub Releases.
-
-## Usage
-
-Simply run:
+Then run:
 
 ```bash
 gh-grass
 ```
 
-The interactive TUI will guide you through:
-
-1. Viewing your own contributions
-2. Searching for other users
-3. Viewing organization members
-
-## Requirements
-
-- Go 1.25.5 or later (for building from source)
-- [GitHub CLI](https://cli.github.com/) (gh command)
-- GitHub authentication via `gh auth login`
-
-## Development
-
-### Prerequisites
-
-- Go 1.25.5 or later
-- GitHub personal access token
-
-### Build
+### Build from source
 
 ```bash
-go build -o gh-grass ./cmd/gh-grass
-```
-
-### Run locally
-
-```bash
-go run ./cmd/gh-grass
-```
-
-## Architecture
-
-The project follows clean architecture principles:
-
-```
-internal/
-├── domain/         # Domain models and interfaces
-├── infrastructure/ # GitHub API client and authentication
-├── ui/            # TUI and command-line interface
-└── usecase/       # Business logic
+go install github.com/umekikazuya/gh-grass/cmd/gh-grass@latest
 ```
 
 ## License
 
-See [LICENSE](LICENSE) file for details.
+See [LICENSE](LICENSE) for details.
