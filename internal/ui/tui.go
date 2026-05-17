@@ -187,39 +187,47 @@ func (m MainModel) helpAvailable() bool {
 }
 
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
+	if next, cmd, handled := m.handleSystemMsg(msg); handled {
+		return next, cmd
+	}
+	if next, handled := m.handleAsyncMsg(msg); handled {
+		return next, nil
+	}
+	return m.updateByState(msg)
+}
 
+func (m MainModel) handleSystemMsg(msg tea.Msg) (MainModel, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.list.SetSize(msg.Width, msg.Height)
-		return m, nil
-
+		return m, nil, true
 	case spinner.TickMsg:
 		var spCmd tea.Cmd
 		m.spinner, spCmd = m.spinner.Update(msg)
-		return m, spCmd
-
+		return m, spCmd, true
 	case tea.KeyMsg:
 		if key.Matches(msg, keys.Quit) {
-			return m, tea.Quit
+			return m, tea.Quit, true
 		}
 		if key.Matches(msg, keys.Help) && m.helpAvailable() {
-			m = m.pushState(stateHelp)
-			return m, nil
+			return m.pushState(stateHelp), nil, true
 		}
 		if key.Matches(msg, keys.Back) && m.backAvailable() {
 			popped, ok := m.popState()
 			if ok {
-				return popped, nil
+				return popped, nil, true
 			}
 		}
+	}
+	return m, nil, false
+}
 
-	// --- Async Result Handling ---
+func (m MainModel) handleAsyncMsg(msg tea.Msg) (MainModel, bool) {
+	switch msg := msg.(type) {
 	case errMsg:
 		m.err = msg
 		m.state = stateError
-		return m, nil
-
+		return m, true
 	case orgMembersMsg:
 		m.members = []domain.User(msg)
 		items := make([]list.Item, len(msg))
@@ -231,101 +239,119 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.list.ResetSelected()
 		m.loadingLabel = ""
 		m.state = stateSelectMember
-		return m, nil
-
+		return m, true
 	case contributionMsg:
 		m.resultCalendar = msg.calendar
 		m.resultTargetHits = msg.targetCount
 		m.targetUser = msg.user
 		m.loadingLabel = ""
 		m.state = stateResult
-		return m, nil
+		return m, true
 	}
+	return m, false
+}
 
-	// --- State Machine ---
+func (m MainModel) updateByState(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.state {
 	case stateModeSelect:
-		var lstCmd tea.Cmd
-		m.list, lstCmd = m.list.Update(msg)
-		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
-			i, ok := m.list.SelectedItem().(item)
-			if ok {
-				switch i.title {
-				case modeSelfTitle:
-					m.targetUser = "" // Will be resolved to current user later
-					return m.switchToDateSelect(), nil
-				case modeSpecificUserTitle:
-					m = m.pushState(stateInputUser)
-					m.input.Placeholder = userInputPlaceholder
-					m.input.SetValue("")
-					return m, nil
-				case modeOrganizationTitle:
-					m = m.pushState(stateInputOrg)
-					m.input.Placeholder = orgInputPlaceholder
-					m.input.SetValue("")
-					return m, nil
-				}
-			}
-		}
-		return m, lstCmd
-
+		return m.updateModeSelect(msg)
 	case stateInputUser, stateInputOrg, stateInputDate:
-		var tiCmd tea.Cmd
-		m.input, tiCmd = m.input.Update(msg)
-		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
-			return m.handleInputConfirm()
-		}
-		return m, tiCmd
-
+		return m.updateInputState(msg)
 	case stateDateSelect:
-		var lstCmd tea.Cmd
-		m.list, lstCmd = m.list.Update(msg)
-		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
-			i, ok := m.list.SelectedItem().(item)
-			if ok {
-				today := time.Now()
-				switch i.title {
-				case dateTodayTitle:
-					m.targetDate = today
-					m = m.pushState(stateLoading)
-					m.loadingLabel = loadingContributions
-					return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
-				case dateYesterdayTitle:
-					m.targetDate = today.AddDate(0, 0, -1)
-					m = m.pushState(stateLoading)
-					m.loadingLabel = loadingContributions
-					return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
-				case dateOtherTitle:
-					m = m.pushState(stateInputDate)
-					m.input.Placeholder = dateInputPlaceholder
-					m.input.SetValue("")
-					return m, nil
-				}
-			}
-		}
-		return m, lstCmd
-
+		return m.updateDateSelect(msg)
 	case stateSelectMember:
-		var lstCmd tea.Cmd
-		m.list, lstCmd = m.list.Update(msg)
-		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
-			i, ok := m.list.SelectedItem().(item)
-			if ok {
-				m.targetUser = i.title
-				return m.switchToDateSelect(), nil
-			}
-		}
-		return m, lstCmd
-
+		return m.updateSelectMember(msg)
 	case stateResult, stateError, stateHelp:
-		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.DoneKey) {
-			return m, tea.Quit
-		}
+		return m.updateTerminalState(msg)
 	case stateLoading:
 		return m, nil
 	}
+	return m, nil
+}
 
-	return m, cmd
+func (m MainModel) updateModeSelect(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var lstCmd tea.Cmd
+	m.list, lstCmd = m.list.Update(msg)
+	if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
+		i, ok := m.list.SelectedItem().(item)
+		if ok {
+			switch i.title {
+			case modeSelfTitle:
+				m.targetUser = ""
+				return m.switchToDateSelect(), nil
+			case modeSpecificUserTitle:
+				m = m.pushState(stateInputUser)
+				m.input.Placeholder = userInputPlaceholder
+				m.input.SetValue("")
+				return m, nil
+			case modeOrganizationTitle:
+				m = m.pushState(stateInputOrg)
+				m.input.Placeholder = orgInputPlaceholder
+				m.input.SetValue("")
+				return m, nil
+			}
+		}
+	}
+	return m, lstCmd
+}
+
+func (m MainModel) updateInputState(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var tiCmd tea.Cmd
+	m.input, tiCmd = m.input.Update(msg)
+	if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
+		next, cmd := m.handleInputConfirm()
+		return next, cmd
+	}
+	return m, tiCmd
+}
+
+func (m MainModel) updateDateSelect(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var lstCmd tea.Cmd
+	m.list, lstCmd = m.list.Update(msg)
+	if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
+		i, ok := m.list.SelectedItem().(item)
+		if ok {
+			today := time.Now()
+			switch i.title {
+			case dateTodayTitle:
+				m.targetDate = today
+				m = m.pushState(stateLoading)
+				m.loadingLabel = loadingContributions
+				return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
+			case dateYesterdayTitle:
+				m.targetDate = today.AddDate(0, 0, -1)
+				m = m.pushState(stateLoading)
+				m.loadingLabel = loadingContributions
+				return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
+			case dateOtherTitle:
+				m = m.pushState(stateInputDate)
+				m.input.Placeholder = dateInputPlaceholder
+				m.input.SetValue("")
+				return m, nil
+			}
+		}
+	}
+	return m, lstCmd
+}
+
+func (m MainModel) updateSelectMember(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var lstCmd tea.Cmd
+	m.list, lstCmd = m.list.Update(msg)
+	if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
+		i, ok := m.list.SelectedItem().(item)
+		if ok {
+			m.targetUser = i.title
+			return m.switchToDateSelect(), nil
+		}
+	}
+	return m, lstCmd
+}
+
+func (m MainModel) updateTerminalState(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.DoneKey) {
+		return m, tea.Quit
+	}
+	return m, nil
 }
 
 func (m MainModel) switchToDateSelect() MainModel {
@@ -471,14 +497,9 @@ func checkContributionCmd(uc *usecase.GrassUsecase, user string, date time.Time)
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		targetUser := user
-		// If "Self" was selected (empty user), resolve the actual username
-		if targetUser == "" {
-			self, err := uc.GetSelf(ctx)
-			if err != nil {
-				return errMsg(err)
-			}
-			targetUser = self.Login
+		targetUser, err := resolveTargetUser(ctx, uc, user)
+		if err != nil {
+			return errMsg(err)
 		}
 
 		cal, err := uc.GetContributionCalendar(ctx, targetUser, date, grassWeeks)
@@ -486,18 +507,36 @@ func checkContributionCmd(uc *usecase.GrassUsecase, user string, date time.Time)
 			return errMsg(err)
 		}
 
-		targetCount := 0
-		targetStr := date.Format("2006-01-02")
-		for _, week := range cal.Weeks {
-			for _, day := range week {
-				if day.Date.Format("2006-01-02") == targetStr {
-					targetCount = day.Count
-				}
-			}
-		}
+		targetCount := contributionCountOnDate(cal, date)
 
 		return contributionMsg{calendar: cal, targetCount: targetCount, user: targetUser}
 	}
+}
+
+func resolveTargetUser(ctx context.Context, uc *usecase.GrassUsecase, user string) (string, error) {
+	if user != "" {
+		return user, nil
+	}
+
+	self, err := uc.GetSelf(ctx)
+	if err != nil {
+		return "", fmt.Errorf("get current user: %w", err)
+	}
+
+	return self.Login, nil
+}
+
+func contributionCountOnDate(cal *domain.ContributionCalendar, date time.Time) int {
+	targetStr := date.Format("2006-01-02")
+	for _, week := range cal.Weeks {
+		for _, day := range week {
+			if day.Date.Format("2006-01-02") == targetStr {
+				return day.Count
+			}
+		}
+	}
+
+	return 0
 }
 
 // formatError はエラー内容を種別判定してユーザー向けの文面に整形する。
