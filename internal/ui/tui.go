@@ -524,7 +524,7 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 		fmt.Fprintf(&b, "  W%02d  ", wn)
 
 		leadingEmpty := int(week[0].Date.Weekday())
-		for i := 0; i < leadingEmpty; i++ {
+		for range leadingEmpty {
 			b.WriteString(emptyCell)
 		}
 
@@ -542,7 +542,7 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 		}
 
 		trailingEmpty := max(0, 7-leadingEmpty-len(week))
-		for i := 0; i < trailingEmpty; i++ {
+		for range trailingEmpty {
 			b.WriteString(emptyCell)
 		}
 		b.WriteString("\n")
