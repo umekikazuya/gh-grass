@@ -11,15 +11,15 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "gh-grass",
-	Short: "Check GitHub contributions from the terminal",
-	Long:  `gh-grass is a CLI extension for GitHub that allows you to check contribution counts for yourself, other users, or organization members using an interactive TUI.`,
+	Use:     "gh-grass",
+	Short:   "Check GitHub contributions from the terminal",
+	Long:    `gh-grass is a CLI extension for GitHub that allows you to check contribution counts for yourself, other users, or organization members using an interactive TUI.`,
 	Version: version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// 1. Get Token
 		token, err := infrastructure.GetGHToken()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get GitHub auth token: %w", err)
 		}
 
 		// 2. Setup Dependencies

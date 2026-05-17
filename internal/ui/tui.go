@@ -31,6 +31,23 @@ const (
 	stateHelp
 )
 
+const (
+	modeSelfTitle         = "Self"
+	modeSpecificUserTitle = "Specific User"
+	modeOrganizationTitle = "Organization"
+	modeSelectTitle       = "Select Mode"
+	dateTodayTitle        = "Today"
+	dateYesterdayTitle    = "Yesterday"
+	dateOtherTitle        = "Other (Date)"
+	dateSelectTitle       = "Select Date"
+	dateInputPlaceholder  = "YYYY-MM-DD"
+	userInputPlaceholder  = "Username"
+	orgInputPlaceholder   = "Organization Name"
+	loadingContributions  = "Fetching contributions..."
+	loadingOrgMembers     = "Fetching organization members..."
+	orgMemberDesc         = "Organization Member"
+)
+
 // item implements list.Item interface
 type item struct {
 	title, desc string
@@ -64,14 +81,10 @@ type MainModel struct {
 // 生成されるモデルはモード選択状態（stateModeSelect）で、リストは "Select Mode" タイトルと三つの選択肢（Self、Specific User、Organization）を持ち、ステータスバーとフィルタリングは無効、テキスト入力はフォーカス済みになります。
 func NewInitialModel(uc *usecase.GrassUsecase) MainModel {
 	// Initialize Mode Selection List
-	items := []list.Item{
-		item{title: "Self", desc: "Check your own contributions"},
-		item{title: "Specific User", desc: "Check another user's contributions"},
-		item{title: "Organization", desc: "Select a member from an organization"},
-	}
+	items := modeItems()
 
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
-	l.Title = "Select Mode"
+	l.Title = modeSelectTitle
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 
@@ -120,38 +133,32 @@ func (m MainModel) popState() (MainModel, bool) {
 func (m MainModel) restoreState(s sessionState) MainModel {
 	switch s {
 	case stateModeSelect:
-		m.list.SetItems([]list.Item{
-			item{title: "Self", desc: "Check your own contributions"},
-			item{title: "Specific User", desc: "Check another user's contributions"},
-			item{title: "Organization", desc: "Select a member from an organization"},
-		})
-		m.list.Title = "Select Mode"
+		m.list.SetItems(modeItems())
+		m.list.Title = modeSelectTitle
 		m.list.ResetSelected()
 	case stateInputUser:
-		m.input.Placeholder = "Username"
+		m.input.Placeholder = userInputPlaceholder
 		m.input.SetValue("")
 	case stateInputOrg:
-		m.input.Placeholder = "Organization Name"
+		m.input.Placeholder = orgInputPlaceholder
 		m.input.SetValue("")
 	case stateInputDate:
-		m.input.Placeholder = "YYYY-MM-DD"
+		m.input.Placeholder = dateInputPlaceholder
 		m.input.SetValue("")
 	case stateDateSelect:
-		m.list.SetItems([]list.Item{
-			item{title: "Today", desc: time.Now().Format("2006-01-02")},
-			item{title: "Yesterday", desc: time.Now().AddDate(0, 0, -1).Format("2006-01-02")},
-			item{title: "Other (Date)", desc: "Specify a custom date"},
-		})
-		m.list.Title = "Select Date"
+		m.list.SetItems(dateItems(time.Now()))
+		m.list.Title = dateSelectTitle
 		m.list.ResetSelected()
 	case stateSelectMember:
 		items := make([]list.Item, len(m.members))
 		for i, u := range m.members {
-			items[i] = item{title: u.Login, desc: "Organization Member"}
+			items[i] = item{title: u.Login, desc: orgMemberDesc}
 		}
 		m.list.SetItems(items)
 		m.list.Title = "Select Member"
 		m.list.ResetSelected()
+	case stateLoading, stateResult, stateError, stateHelp:
+		// no-op
 	}
 	return m
 }
@@ -162,8 +169,10 @@ func (m MainModel) backAvailable() bool {
 	switch m.state {
 	case stateInputUser, stateInputOrg, stateInputDate, stateLoading:
 		return false
+	case stateModeSelect, stateSelectMember, stateDateSelect, stateResult, stateError, stateHelp:
+		return len(m.history) > 0
 	}
-	return len(m.history) > 0
+	return false
 }
 
 // helpAvailable は ? キーでヘルプを開くのを現在の状態で許可するか返す。
@@ -171,8 +180,10 @@ func (m MainModel) helpAvailable() bool {
 	switch m.state {
 	case stateInputUser, stateInputOrg, stateInputDate, stateLoading, stateHelp:
 		return false
+	case stateModeSelect, stateSelectMember, stateDateSelect, stateResult, stateError:
+		return true
 	}
-	return true
+	return false
 }
 
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -213,7 +224,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.members = []domain.User(msg)
 		items := make([]list.Item, len(msg))
 		for i, u := range msg {
-			items[i] = item{title: u.Login, desc: "Organization Member"}
+			items[i] = item{title: u.Login, desc: orgMemberDesc}
 		}
 		m.list.SetItems(items)
 		m.list.Title = "Select Member"
@@ -233,7 +244,6 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// --- State Machine ---
 	switch m.state {
-
 	case stateModeSelect:
 		var lstCmd tea.Cmd
 		m.list, lstCmd = m.list.Update(msg)
@@ -241,17 +251,17 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			i, ok := m.list.SelectedItem().(item)
 			if ok {
 				switch i.title {
-				case "Self":
+				case modeSelfTitle:
 					m.targetUser = "" // Will be resolved to current user later
-					return m.switchToDateSelect()
-				case "Specific User":
+					return m.switchToDateSelect(), nil
+				case modeSpecificUserTitle:
 					m = m.pushState(stateInputUser)
-					m.input.Placeholder = "Username"
+					m.input.Placeholder = userInputPlaceholder
 					m.input.SetValue("")
 					return m, nil
-				case "Organization":
+				case modeOrganizationTitle:
 					m = m.pushState(stateInputOrg)
-					m.input.Placeholder = "Organization Name"
+					m.input.Placeholder = orgInputPlaceholder
 					m.input.SetValue("")
 					return m, nil
 				}
@@ -263,30 +273,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var tiCmd tea.Cmd
 		m.input, tiCmd = m.input.Update(msg)
 		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.Confirm) {
-			val := m.input.Value()
-			if val == "" {
-				return m, nil // Ignore empty input
-			}
-
-			if m.state == stateInputUser {
-				m.targetUser = val
-				return m.switchToDateSelect()
-			} else if m.state == stateInputOrg {
-				m = m.pushState(stateLoading)
-				m.loadingLabel = "Fetching organization members..."
-				return m, fetchOrgMembersCmd(m.uc, val)
-			} else if m.state == stateInputDate {
-				t, err := time.Parse("2006-01-02", val)
-				if err != nil {
-					m.err = fmt.Errorf("invalid date format (use YYYY-MM-DD): %v", err)
-					m = m.pushState(stateError)
-					return m, nil
-				}
-				m.targetDate = t
-				m = m.pushState(stateLoading)
-				m.loadingLabel = "Fetching contributions..."
-				return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
-			}
+			return m.handleInputConfirm()
 		}
 		return m, tiCmd
 
@@ -298,19 +285,19 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if ok {
 				today := time.Now()
 				switch i.title {
-				case "Today":
+				case dateTodayTitle:
 					m.targetDate = today
 					m = m.pushState(stateLoading)
-					m.loadingLabel = "Fetching contributions..."
+					m.loadingLabel = loadingContributions
 					return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
-				case "Yesterday":
+				case dateYesterdayTitle:
 					m.targetDate = today.AddDate(0, 0, -1)
 					m = m.pushState(stateLoading)
-					m.loadingLabel = "Fetching contributions..."
+					m.loadingLabel = loadingContributions
 					return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
-				case "Other (Date)":
+				case dateOtherTitle:
 					m = m.pushState(stateInputDate)
-					m.input.Placeholder = "YYYY-MM-DD"
+					m.input.Placeholder = dateInputPlaceholder
 					m.input.SetValue("")
 					return m, nil
 				}
@@ -325,7 +312,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			i, ok := m.list.SelectedItem().(item)
 			if ok {
 				m.targetUser = i.title
-				return m.switchToDateSelect()
+				return m.switchToDateSelect(), nil
 			}
 		}
 		return m, lstCmd
@@ -334,22 +321,66 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if km, ok := msg.(tea.KeyMsg); ok && key.Matches(km, keys.DoneKey) {
 			return m, tea.Quit
 		}
+	case stateLoading:
+		return m, nil
 	}
 
 	return m, cmd
 }
 
-func (m MainModel) switchToDateSelect() (MainModel, tea.Cmd) {
-	items := []list.Item{
-		item{title: "Today", desc: time.Now().Format("2006-01-02")},
-		item{title: "Yesterday", desc: time.Now().AddDate(0, 0, -1).Format("2006-01-02")},
-		item{title: "Other (Date)", desc: "Specify a custom date"},
-	}
-	m.list.SetItems(items)
-	m.list.Title = "Select Date"
+func (m MainModel) switchToDateSelect() MainModel {
+	m.list.SetItems(dateItems(time.Now()))
+	m.list.Title = dateSelectTitle
 	m.list.ResetSelected()
-	m = m.pushState(stateDateSelect)
+	return m.pushState(stateDateSelect)
+}
+
+func (m MainModel) handleInputConfirm() (MainModel, tea.Cmd) {
+	val := m.input.Value()
+	if val == "" {
+		return m, nil
+	}
+
+	switch m.state {
+	case stateInputUser:
+		m.targetUser = val
+		return m.switchToDateSelect(), nil
+	case stateInputOrg:
+		m = m.pushState(stateLoading)
+		m.loadingLabel = loadingOrgMembers
+		return m, fetchOrgMembersCmd(m.uc, val)
+	case stateInputDate:
+		t, err := time.Parse("2006-01-02", val)
+		if err != nil {
+			m.err = fmt.Errorf("invalid date format (use YYYY-MM-DD): %w", err)
+			m = m.pushState(stateError)
+			return m, nil
+		}
+		m.targetDate = t
+		m = m.pushState(stateLoading)
+		m.loadingLabel = loadingContributions
+		return m, checkContributionCmd(m.uc, m.targetUser, m.targetDate)
+	case stateModeSelect, stateSelectMember, stateDateSelect, stateLoading, stateResult, stateError, stateHelp:
+		return m, nil
+	}
+
 	return m, nil
+}
+
+func modeItems() []list.Item {
+	return []list.Item{
+		item{title: modeSelfTitle, desc: "Check your own contributions"},
+		item{title: modeSpecificUserTitle, desc: "Check another user's contributions"},
+		item{title: modeOrganizationTitle, desc: "Select a member from an organization"},
+	}
+}
+
+func dateItems(now time.Time) []list.Item {
+	return []list.Item{
+		item{title: dateTodayTitle, desc: now.Format("2006-01-02")},
+		item{title: dateYesterdayTitle, desc: now.AddDate(0, 0, -1).Format("2006-01-02")},
+		item{title: dateOtherTitle, desc: "Specify a custom date"},
+	}
 }
 
 func (m MainModel) View() string {

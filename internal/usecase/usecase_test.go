@@ -156,7 +156,7 @@ func TestGetContributionCount_Error(t *testing.T) {
 	if err == nil {
 		t.Error("expected error, got nil")
 	}
-	if err != expectedErr {
+	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected %v, got %v", expectedErr, err)
 	}
 }
@@ -213,7 +213,7 @@ func TestGetSelf_Error(t *testing.T) {
 	if err == nil {
 		t.Error("expected error, got nil")
 	}
-	if err != expectedErr {
+	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected %v, got %v", expectedErr, err)
 	}
 }
