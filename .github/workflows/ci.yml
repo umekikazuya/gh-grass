@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  Exec:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ".go-version"
+          cache-dependency-path: "go.sum"
+
+      - name: Setup golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+
+      - name: Install Tparse
+        run: go install github.com/mfridman/tparse@v0.18.0
+
+      - name: Run tests
+        run: |
+          set -o pipefail
+          go test -race -cover -json ./... | tparse --all
