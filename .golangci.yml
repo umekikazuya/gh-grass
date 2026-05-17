@@ -6,6 +6,8 @@ linters:
     - bodyclose
     - exhaustive
     - goconst
+    - gocyclo
+    - gocognit
     - gomoddirectives
     - goprintffuncname
     - gosec
