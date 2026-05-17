@@ -6,6 +6,8 @@ linters:
     - bodyclose
     - exhaustive
     - goconst
+    - gocyclo
+    - gocognit
     - gomoddirectives
     - goprintffuncname
     - gosec
@@ -32,6 +34,11 @@ linters:
     generated: lax
     presets:
       - common-false-positives
+  settings:
+    gocyclo:
+      min-complexity: 15
+    gocognit:
+      min-complexity: 15
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

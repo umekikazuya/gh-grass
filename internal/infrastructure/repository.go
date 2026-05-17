@@ -35,7 +35,7 @@ func (r *GitHubRepository) GetUser(ctx context.Context, login string) (*domain.U
 		}
 		err := r.client.Query(ctx, &q, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("query viewer: %w", err)
 		}
 		return &domain.User{Login: string(q.Viewer.Login)}, nil
 	}
@@ -45,12 +45,12 @@ func (r *GitHubRepository) GetUser(ctx context.Context, login string) (*domain.U
 			Login githubv4.String
 		} `graphql:"user(login: $login)"`
 	}
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"login": githubv4.String(login),
 	}
 	err := r.client.Query(ctx, &q, variables)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query user %q: %w", login, err)
 	}
 	return &domain.User{Login: string(q.User.Login)}, nil
 }
@@ -65,12 +65,12 @@ func (r *GitHubRepository) ListOrgMembers(ctx context.Context, orgName string) (
 			} `graphql:"membersWithRole(first: 100)"`
 		} `graphql:"organization(login: $org)"`
 	}
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"org": githubv4.String(orgName),
 	}
 	err := r.client.Query(ctx, &q, variables)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query organization members for %q: %w", orgName, err)
 	}
 
 	var users []domain.User
@@ -110,7 +110,7 @@ func (r *GitHubRepository) GetContributions(ctx context.Context, username string
 		} `graphql:"user(login: $user)"`
 	}
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"user": githubv4.String(username),
 		"from": githubv4.DateTime{Time: from},
 		"to":   githubv4.DateTime{Time: to},
@@ -118,7 +118,7 @@ func (r *GitHubRepository) GetContributions(ctx context.Context, username string
 
 	err := r.client.Query(ctx, &q, variables)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query contributions for %q on %s: %w", username, date.Format("2006-01-02"), err)
 	}
 
 	// Use the date in the original timezone (not UTC) because GitHub API
@@ -161,7 +161,7 @@ func (r *GitHubRepository) GetContributionCalendar(ctx context.Context, username
 		} `graphql:"user(login: $user)"`
 	}
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"user": githubv4.String(username),
 		"from": githubv4.DateTime{Time: from},
 		"to":   githubv4.DateTime{Time: to},
@@ -169,7 +169,7 @@ func (r *GitHubRepository) GetContributionCalendar(ctx context.Context, username
 
 	err := r.client.Query(ctx, &q, variables)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query contribution calendar for %q (%s to %s): %w", username, from.Format("2006-01-02"), to.Format("2006-01-02"), err)
 	}
 
 	weeks := make([][]domain.ContributionDay, 0, len(q.User.ContributionsCollection.ContributionCalendar.Weeks))

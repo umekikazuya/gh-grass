@@ -2,15 +2,20 @@ package infrastructure
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // GetGHToken は gh CLI の `gh auth token` を実行してアクティブな GitHub トークンを返します。
 // コマンド実行に失敗した場合は空文字とエラーを返します（エラーには gh がインストールされていないか認証されていない可能性を示す旨が含まれます）。
 func GetGHToken() (string, error) {
-	cmd := exec.Command("gh", "auth", "token")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "gh", "auth", "token")
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
