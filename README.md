@@ -2,6 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/umekikazuya/gh-grass.svg)](https://pkg.go.dev/github.com/umekikazuya/gh-grass)
 [![CI](https://github.com/umekikazuya/gh-grass/actions/workflows/ci.yml/badge.svg)](https://github.com/umekikazuya/gh-grass/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/umekikazuya/gh-grass)](https://goreportcard.com/report/github.com/umekikazuya/gh-grass)
 [![Release](https://img.shields.io/github/v/release/umekikazuya/gh-grass?display_name=tag)](https://github.com/umekikazuya/gh-grass/releases)
 [![License](https://img.shields.io/github/license/umekikazuya/gh-grass)](LICENSE)
 
