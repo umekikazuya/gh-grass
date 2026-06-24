@@ -10,6 +10,8 @@
 
 It is for people who use `gh` daily and want to check their own graph, other users, or organization members without opening the browser.
 
+![gh-grass demo](https://raw.githubusercontent.com/umekikazuya/gh-grass/refs/heads/assets/demo.gif)
+
 ## At a glance
 
 - Command: `gh grass`
