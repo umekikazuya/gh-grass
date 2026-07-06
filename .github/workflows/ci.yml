@@ -4,29 +4,25 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   Exec:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
         with:
           go-version-file: ".go-version"
           cache-dependency-path: "go.sum"
-
-      - name: Setup golangci-lint
-        uses: golangci/golangci-lint-action@v9
+      - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
-
-      - name: Install Tparse
-        run: go install github.com/mfridman/tparse@v0.18.0
-
-      - name: Run tests
-        run: |
+      - run: go install github.com/mfridman/tparse@v0.18.0
+      - run: |
           set -o pipefail
           go test -race -cover -json ./... | tparse --all
