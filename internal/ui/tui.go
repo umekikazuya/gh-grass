@@ -84,6 +84,8 @@ func NewInitialModel(uc *usecase.GrassUsecase) MainModel {
 	items := modeItems()
 
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	l.KeyMap.CursorUp.SetKeys(append(l.KeyMap.CursorUp.Keys(), "ctrl+p")...)
+	l.KeyMap.CursorDown.SetKeys(append(l.KeyMap.CursorDown.Keys(), "ctrl+n")...)
 	l.Title = modeSelectTitle
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
