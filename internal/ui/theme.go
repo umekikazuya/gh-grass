@@ -5,11 +5,11 @@ import "github.com/charmbracelet/lipgloss"
 // GitHub のコントリビューショングラフ相当の緑濃淡（強度 0〜4）。
 // 0: 非コントリビュート、1〜4: 濃くなるほど多い。
 var grassPalette = []lipgloss.Color{
-	lipgloss.Color("#2d333b"),
-	lipgloss.Color("#0e4429"),
-	lipgloss.Color("#006d32"),
-	lipgloss.Color("#26a641"),
-	lipgloss.Color("#39d353"),
+	lipgloss.Color("#d1d5db"),
+	lipgloss.Color("#aceebb"),
+	lipgloss.Color("#4ac26b"),
+	lipgloss.Color("#2da44e"),
+	lipgloss.Color("#116329"),
 }
 
 var (
