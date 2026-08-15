@@ -93,8 +93,9 @@ func NewInitialModel(uc *usecase.GrassUsecase) MainModel {
 	ti := textinput.New()
 	ti.Focus()
 
-	sp := spinner.New()
-	sp.Spinner = spinner.Dot
+	sp := spinner.New(
+		spinner.WithSpinner(spinner.Dot),
+	)
 
 	return MainModel{
 		uc:      uc,
