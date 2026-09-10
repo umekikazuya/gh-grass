@@ -1,6 +1,6 @@
 module github.com/umekikazuya/gh-grass
 
-go 1.26.6
+go 1.27.1
 
 require (
 	github.com/charmbracelet/bubbles v1.0.0
