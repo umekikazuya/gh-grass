@@ -379,7 +379,7 @@ func (m MainModel) handleInputConfirm() (MainModel, tea.Cmd) {
 		m.loadingLabel = loadingOrgMembers
 		return m, fetchOrgMembersCmd(m.uc, val)
 	case stateInputDate:
-		t, err := time.Parse("2006-01-02", val)
+		t, err := time.Parse(time.DateOnly, val)
 		if err != nil {
 			m.err = fmt.Errorf("invalid date format (use YYYY-MM-DD): %w", err)
 			m = m.pushState(stateError)
@@ -406,8 +406,8 @@ func modeItems() []list.Item {
 
 func dateItems(now time.Time) []list.Item {
 	return []list.Item{
-		item{title: dateTodayTitle, desc: now.Format("2006-01-02")},
-		item{title: dateYesterdayTitle, desc: now.AddDate(0, 0, -1).Format("2006-01-02")},
+		item{title: dateTodayTitle, desc: now.Format(time.DateOnly)},
+		item{title: dateYesterdayTitle, desc: now.AddDate(0, 0, -1).Format(time.DateOnly)},
 		item{title: dateOtherTitle, desc: "Specify a custom date"},
 	}
 }
@@ -530,10 +530,10 @@ func resolveTargetUser(ctx context.Context, uc *usecase.GrassUsecase, user strin
 }
 
 func contributionCountOnDate(cal *domain.ContributionCalendar, date time.Time) int {
-	targetStr := date.Format("2006-01-02")
+	targetStr := date.Format(time.DateOnly)
 	for _, week := range cal.Weeks {
 		for _, day := range week {
-			if day.Date.Format("2006-01-02") == targetStr {
+			if day.Date.Format(time.DateOnly) == targetStr {
 				return day.Count
 			}
 		}
@@ -573,7 +573,7 @@ func formatError(err error) string {
 func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time.Time, targetCount int) string {
 	if cal == nil || len(cal.Weeks) == 0 {
 		return fmt.Sprintf("%s's contributions on %s:\n\n  (no data)",
-			user, target.Format("2006-01-02"))
+			user, target.Format(time.DateOnly))
 	}
 
 	weeks := cal.Weeks
@@ -587,7 +587,7 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 
 	b.WriteString("        Sun  Mon  Tue  Wed  Thu  Fri  Sat\n")
 
-	targetStr := target.Format("2006-01-02")
+	targetStr := target.Format(time.DateOnly)
 	emptyCell := "     "
 	for _, week := range weeks {
 		if len(week) == 0 {
@@ -602,7 +602,7 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 		}
 
 		for _, day := range week {
-			dayStr := day.Date.Format("2006-01-02")
+			dayStr := day.Date.Format(time.DateOnly)
 			switch {
 			case dayStr > targetStr:
 				b.WriteString("  -  ")
@@ -623,7 +623,7 @@ func renderGrassGraph(cal *domain.ContributionCalendar, user string, target time
 
 	total, streak := summarizeCalendar(weeks, target)
 
-	fmt.Fprintf(&b, "\n  %s's contributions on %s:  %d\n", user, target.Format("2006-01-02"), targetCount)
+	fmt.Fprintf(&b, "\n  %s's contributions on %s:  %d\n", user, target.Format(time.DateOnly), targetCount)
 	fmt.Fprintf(&b, "  Total (%d weeks):  %d  |  Current streak:  %d day(s)", len(weeks), total, streak)
 	return b.String()
 }
@@ -635,12 +635,12 @@ func summarizeCalendar(weeks [][]domain.ContributionDay, target time.Time) (tota
 	for _, week := range weeks {
 		for _, day := range week {
 			total += day.Count
-			counts[day.Date.Format("2006-01-02")] = day.Count
+			counts[day.Date.Format(time.DateOnly)] = day.Count
 		}
 	}
 
 	for cursor := target; ; cursor = cursor.AddDate(0, 0, -1) {
-		c, ok := counts[cursor.Format("2006-01-02")]
+		c, ok := counts[cursor.Format(time.DateOnly)]
 		if !ok || c <= 0 {
 			break
 		}
