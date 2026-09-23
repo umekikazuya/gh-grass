@@ -118,13 +118,13 @@ func (r *GitHubRepository) GetContributions(ctx context.Context, username string
 
 	err := r.client.Query(ctx, &q, variables)
 	if err != nil {
-		return nil, fmt.Errorf("query contributions for %q on %s: %w", username, date.Format("2006-01-02"), err)
+		return nil, fmt.Errorf("query contributions for %q on %s: %w", username, date.Format(time.DateOnly), err)
 	}
 
 	// Use the date in the original timezone (not UTC) because GitHub API
 	// returns contribution dates based on the user's timezone setting.
 	// Example: JST 2026-02-16 01:56 should match "2026-02-16", not "2026-02-15" (UTC).
-	targetDateStr := date.Format("2006-01-02")
+	targetDateStr := date.Format(time.DateOnly)
 
 	for _, week := range q.User.ContributionsCollection.ContributionCalendar.Weeks {
 		for _, day := range week.ContributionDays {
@@ -169,14 +169,14 @@ func (r *GitHubRepository) GetContributionCalendar(ctx context.Context, username
 
 	err := r.client.Query(ctx, &q, variables)
 	if err != nil {
-		return nil, fmt.Errorf("query contribution calendar for %q (%s to %s): %w", username, from.Format("2006-01-02"), to.Format("2006-01-02"), err)
+		return nil, fmt.Errorf("query contribution calendar for %q (%s to %s): %w", username, from.Format(time.DateOnly), to.Format(time.DateOnly), err)
 	}
 
 	weeks := make([][]domain.ContributionDay, 0, len(q.User.ContributionsCollection.ContributionCalendar.Weeks))
 	for _, week := range q.User.ContributionsCollection.ContributionCalendar.Weeks {
 		days := make([]domain.ContributionDay, 0, len(week.ContributionDays))
 		for _, day := range week.ContributionDays {
-			d, perr := time.Parse("2006-01-02", string(day.Date))
+			d, perr := time.Parse(time.DateOnly, string(day.Date))
 			if perr != nil {
 				return nil, fmt.Errorf("parse contribution date %q: %w", string(day.Date), perr)
 			}

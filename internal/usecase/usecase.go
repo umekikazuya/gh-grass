@@ -22,7 +22,7 @@ func NewGrassUsecase(repo domain.GrassRepository) *GrassUsecase {
 func (u *GrassUsecase) GetContributionCount(ctx context.Context, username string, date time.Time) (int, error) {
 	contrib, err := u.repo.GetContributions(ctx, username, date)
 	if err != nil {
-		return 0, fmt.Errorf("get contributions for %q on %s: %w", username, date.Format("2006-01-02"), err)
+		return 0, fmt.Errorf("get contributions for %q on %s: %w", username, date.Format(time.DateOnly), err)
 	}
 	return contrib.Count, nil
 }
@@ -51,7 +51,7 @@ func (u *GrassUsecase) GetContributionCalendar(ctx context.Context, username str
 	from := until.AddDate(0, 0, -(weeks*7 - 1))
 	calendar, err := u.repo.GetContributionCalendar(ctx, username, from, until)
 	if err != nil {
-		return nil, fmt.Errorf("get contribution calendar for %q (%s to %s): %w", username, from.Format("2006-01-02"), until.Format("2006-01-02"), err)
+		return nil, fmt.Errorf("get contribution calendar for %q (%s to %s): %w", username, from.Format(time.DateOnly), until.Format(time.DateOnly), err)
 	}
 	return calendar, nil
 }

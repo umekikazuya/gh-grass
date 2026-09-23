@@ -45,7 +45,7 @@ func (m *MockRepository) GetContributions(ctx context.Context, username string, 
 	if m.Err != nil {
 		return nil, m.Err
 	}
-	dateStr := date.Format("2006-01-02")
+	dateStr := date.Format(time.DateOnly)
 	if userContribs, ok := m.Contributions[username]; ok {
 		if count, ok := userContribs[dateStr]; ok {
 			return &domain.Contribution{Date: date, Count: count}, nil
@@ -71,7 +71,7 @@ func (m *MockRepository) GetContributionCalendar(ctx context.Context, username s
 		for i := 0; i < 7 && !cursor.After(to); i++ {
 			count := 0
 			if userContribs, ok := m.Contributions[username]; ok {
-				if c, ok := userContribs[cursor.Format("2006-01-02")]; ok {
+				if c, ok := userContribs[cursor.Format(time.DateOnly)]; ok {
 					count = c
 				}
 			}
@@ -94,7 +94,7 @@ func TestGetContributionCount(t *testing.T) {
 	}
 	usecase := NewGrassUsecase(mockRepo)
 
-	date, err := time.Parse("2006-01-02", "2023-10-01")
+	date, err := time.Parse(time.DateOnly, "2023-10-01")
 	if err != nil {
 		t.Fatalf("failed to parse date: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestGetContributionCount_Error(t *testing.T) {
 	}
 	usecase := NewGrassUsecase(mockRepo)
 
-	date, err := time.Parse("2006-01-02", "2023-10-01")
+	date, err := time.Parse(time.DateOnly, "2023-10-01")
 	if err != nil {
 		t.Fatalf("failed to parse date: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestGetContributionCalendar(t *testing.T) {
 	}
 	usecase := NewGrassUsecase(mockRepo)
 
-	until, err := time.Parse("2006-01-02", "2026-04-20")
+	until, err := time.Parse(time.DateOnly, "2026-04-20")
 	if err != nil {
 		t.Fatalf("failed to parse date: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestGetContributionCalendar(t *testing.T) {
 	found := map[string]int{}
 	for _, week := range cal.Weeks {
 		for _, day := range week {
-			found[day.Date.Format("2006-01-02")] = day.Count
+			found[day.Date.Format(time.DateOnly)] = day.Count
 		}
 	}
 	if found["2026-04-20"] != 5 {
