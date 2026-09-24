@@ -27,8 +27,8 @@ func (fakeClient) OrgMembers(context.Context, string) ([]string, error) {
 
 func newTestProgram() *program {
 	ctx, cancel := context.WithCancel(context.Background())
-	m, effs := app.Init(app.Flags{Today: today})
-	return &program{ctx: ctx, cancel: cancel, client: fakeClient{}, model: m, initial: effs}
+	m, cmds := app.Init(app.Flags{Today: today})
+	return &program{ctx: ctx, cancel: cancel, client: fakeClient{}, model: m, initial: cmds}
 }
 
 func TestPerformReturnsResultMsg(t *testing.T) {
@@ -37,16 +37,16 @@ func TestPerformReturnsResultMsg(t *testing.T) {
 	p := newTestProgram()
 	r := app.DateRange{From: today, To: today}
 	tests := []struct {
-		effect app.Effect
-		want   tea.Msg
+		cmd  app.Cmd
+		want tea.Msg
 	}{
 		{app.FetchViewer{}, app.GotViewer{Login: "octocat"}},
 		{app.FetchCalendar{Login: "bob", Range: r}, app.GotCalendar{Login: "bob", Range: r, Calendar: app.NewCalendar(r, nil)}},
 		{app.FetchOrgMembers{Org: "acme"}, app.GotOrgMembers{Org: "acme", Members: []string{"alice"}}},
 	}
 	for _, tt := range tests {
-		if got := p.performOne(tt.effect)(); !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("performOne(%#v)() = %#v, want %#v", tt.effect, got, tt.want)
+		if got := p.performOne(tt.cmd)(); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("performOne(%#v)() = %#v, want %#v", tt.cmd, got, tt.want)
 		}
 	}
 }

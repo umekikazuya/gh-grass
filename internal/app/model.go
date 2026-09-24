@@ -52,13 +52,13 @@ func (memberPicker) isOverlay() {}
 func (helpOverlay) isOverlay()  {}
 
 // Init は初期状態と最初の副作用を返す。起動直後は自分の今日のグラフを表示するため、まず認証中のユーザーを取得する。
-func Init(flags Flags) (Model, []Effect) {
+func Init(flags Flags) (Model, []Cmd) {
 	m := Model{
 		today:    flags.Today,
 		viewer:   Pending[string](),
 		selected: flags.Today,
 	}
-	return m, []Effect{FetchViewer{}}
+	return m, []Cmd{FetchViewer{}}
 }
 
 // window はグラフに表示する期間。選択中の日を含む週までの graphWeeks 週間で、今日より先は含めない。

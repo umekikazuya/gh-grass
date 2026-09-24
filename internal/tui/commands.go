@@ -11,17 +11,17 @@ import (
 // requestTimeout は 1 回の API 呼び出しの制限時間。
 const requestTimeout = 10 * time.Second
 
-// perform は app の Effect を tea.Cmd に変換する。各 Effect の結果は app が決めた Msg で返す。
-func (p *program) perform(effs []app.Effect) tea.Cmd {
-	cmds := make([]tea.Cmd, 0, len(effs))
-	for _, e := range effs {
-		cmds = append(cmds, p.performOne(e))
+// perform は app.Cmd を tea.Cmd に変換する。各 Cmd の結果は app が決めた Msg で返す。
+func (p *program) perform(cmds []app.Cmd) tea.Cmd {
+	out := make([]tea.Cmd, 0, len(cmds))
+	for _, c := range cmds {
+		out = append(out, p.performOne(c))
 	}
-	return tea.Batch(cmds...)
+	return tea.Batch(out...)
 }
 
-func (p *program) performOne(e app.Effect) tea.Cmd {
-	switch e := e.(type) {
+func (p *program) performOne(c app.Cmd) tea.Cmd {
+	switch e := c.(type) {
 	case app.FetchViewer:
 		return p.request(func(ctx context.Context) app.Msg {
 			login, err := p.client.Viewer(ctx)

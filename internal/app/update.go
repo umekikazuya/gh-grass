@@ -13,7 +13,7 @@ const (
 )
 
 // Update は Msg を受け取り、新しい Model と外殻に依頼する副作用を返す。副作用は実行しない。
-func Update(m Model, msg Msg) (Model, []Effect) {
+func Update(m Model, msg Msg) (Model, []Cmd) {
 	switch msg := msg.(type) {
 	case KeyPressed:
 		return m.updateKey(msg.Key)
@@ -35,9 +35,9 @@ func Update(m Model, msg Msg) (Model, []Effect) {
 
 // --- キー操作 ---
 
-func (m Model) updateKey(key string) (Model, []Effect) {
+func (m Model) updateKey(key string) (Model, []Cmd) {
 	if key == "ctrl+c" {
-		return m, []Effect{Quit{}}
+		return m, []Cmd{Quit{}}
 	}
 	switch o := m.overlay.(type) {
 	case userInput:
@@ -56,10 +56,10 @@ func (m Model) updateKey(key string) (Model, []Effect) {
 }
 
 // updateMain は何も開いていないときのキー操作。
-func (m Model) updateMain(key string) (Model, []Effect) {
+func (m Model) updateMain(key string) (Model, []Cmd) {
 	switch key {
 	case "q":
-		return m, []Effect{Quit{}}
+		return m, []Cmd{Quit{}}
 	case "left", "h":
 		return m.selectDate(m.selected.AddDays(-1))
 	case "right", "l":
@@ -86,7 +86,7 @@ func (m Model) updateMain(key string) (Model, []Effect) {
 	return m, nil
 }
 
-func (m Model) updateUserInput(o userInput, key string) (Model, []Effect) {
+func (m Model) updateUserInput(o userInput, key string) (Model, []Cmd) {
 	switch key {
 	case keyEsc:
 		m.overlay = nil
@@ -101,14 +101,14 @@ func (m Model) updateUserInput(o userInput, key string) (Model, []Effect) {
 	return m, nil
 }
 
-func (m Model) updateOrgInput(o orgInput, key string) (Model, []Effect) {
+func (m Model) updateOrgInput(o orgInput, key string) (Model, []Cmd) {
 	switch key {
 	case keyEsc:
 		m.overlay = nil
 	case keyEnter:
 		if org := strings.TrimSpace(o.text); org != "" {
 			m.overlay = memberPicker{org: org, members: Pending[[]string]()}
-			return m, []Effect{FetchOrgMembers{Org: org}}
+			return m, []Cmd{FetchOrgMembers{Org: org}}
 		}
 	default:
 		o.text = editText(o.text, key)
@@ -117,7 +117,7 @@ func (m Model) updateOrgInput(o orgInput, key string) (Model, []Effect) {
 	return m, nil
 }
 
-func (m Model) updateMemberPicker(p memberPicker, key string) (Model, []Effect) {
+func (m Model) updateMemberPicker(p memberPicker, key string) (Model, []Cmd) {
 	candidates := p.candidates()
 	switch key {
 	case keyEsc:
@@ -174,7 +174,7 @@ func (p memberPicker) candidates() []string {
 // --- 状態遷移 ---
 
 // selectDate は選択中の日付を d にする。今日より先は選べない。
-func (m Model) selectDate(d Date) (Model, []Effect) {
+func (m Model) selectDate(d Date) (Model, []Cmd) {
 	if d.After(m.today) {
 		d = m.today
 	}
@@ -183,7 +183,7 @@ func (m Model) selectDate(d Date) (Model, []Effect) {
 }
 
 // showUser は表示するユーザーを切り替え、開いている入力欄などを閉じる。
-func (m Model) showUser(login string) (Model, []Effect) {
+func (m Model) showUser(login string) (Model, []Cmd) {
 	m.login = login
 	m.err = nil
 	m.overlay = nil
@@ -191,10 +191,10 @@ func (m Model) showUser(login string) (Model, []Effect) {
 }
 
 // reload は表示中のユーザーのデータを取り直す。自分の取得に失敗していればそちらをやり直す。
-func (m Model) reload() (Model, []Effect) {
+func (m Model) reload() (Model, []Cmd) {
 	if m.viewer.State() == Failure {
 		m.viewer = Pending[string]()
-		return m, []Effect{FetchViewer{}}
+		return m, []Cmd{FetchViewer{}}
 	}
 	if m.login == "" {
 		return m, nil
@@ -209,7 +209,7 @@ func (m Model) reload() (Model, []Effect) {
 
 // ensureCalendar はグラフの表示期間が取得済みでなければ、足りない期間の取得を依頼する。
 // 1 回の取得は 1 年分なので、日付を 1 日や 1 週間ずつ動かしている間は通信しない。
-func (m Model) ensureCalendar() (Model, []Effect) {
+func (m Model) ensureCalendar() (Model, []Cmd) {
 	if m.login == "" || m.err != nil {
 		return m, nil
 	}
@@ -232,12 +232,12 @@ func (m Model) ensureCalendar() (Model, []Effect) {
 	}
 
 	m.inflight = with(m.inflight, m.login, r)
-	return m, []Effect{FetchCalendar{Login: m.login, Range: r}}
+	return m, []Cmd{FetchCalendar{Login: m.login, Range: r}}
 }
 
 // --- 副作用の結果 ---
 
-func (m Model) gotViewer(msg GotViewer) (Model, []Effect) {
+func (m Model) gotViewer(msg GotViewer) (Model, []Cmd) {
 	if msg.Err != nil {
 		m.viewer = Failed[string](msg.Err)
 		return m, nil
@@ -252,7 +252,7 @@ func (m Model) gotViewer(msg GotViewer) (Model, []Effect) {
 // gotCalendar は取得結果を反映する。
 // ユーザーを切り替えた後に届いた結果も、データとしては正しいのでキャッシュに加える。
 // エラーは、表示中のユーザーの最新の依頼に対するものだけを表示する。
-func (m Model) gotCalendar(msg GotCalendar) (Model, []Effect) {
+func (m Model) gotCalendar(msg GotCalendar) (Model, []Cmd) {
 	latest := m.inflight[msg.Login] == msg.Range
 	if latest {
 		m.inflight = without(m.inflight, msg.Login)

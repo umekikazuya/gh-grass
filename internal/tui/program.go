@@ -1,5 +1,5 @@
 // Package tui は app（Elm アーキテクチャの本体）を Bubble Tea 上で動かす外殻。
-// キー入力などを app の Msg に変換し、app が返す Effect と Sub を実際に実行する。
+// キー入力などを app の Msg に変換し、app が返す Cmd と Sub を実際に実行する。
 package tui
 
 import (
@@ -10,7 +10,7 @@ import (
 	"github.com/umekikazuya/gh-grass/internal/app"
 )
 
-// Client は Effect を実行するために app が必要とする外部接続（ポート）。
+// Client は Cmd を実行するために app が必要とする外部接続（ポート）。
 type Client interface {
 	Viewer(ctx context.Context) (string, error)
 	Calendar(ctx context.Context, login string, r app.DateRange) (app.Calendar, error)
@@ -22,8 +22,8 @@ func Run(flags app.Flags, client Client) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	m, effs := app.Init(flags)
-	p := &program{ctx: ctx, cancel: cancel, client: client, model: m, initial: effs}
+	m, cmds := app.Init(flags)
+	p := &program{ctx: ctx, cancel: cancel, client: client, model: m, initial: cmds}
 	if _, err := tea.NewProgram(p).Run(); err != nil {
 		return fmt.Errorf("run tui: %w", err)
 	}
@@ -36,7 +36,7 @@ type program struct {
 	cancel  context.CancelFunc
 	client  Client
 	model   app.Model
-	initial []app.Effect
+	initial []app.Cmd
 	ticking bool // Tick を予約済みか
 }
 
@@ -61,9 +61,9 @@ func (p *program) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return p, nil
 	}
 
-	var effs []app.Effect
-	p.model, effs = app.Update(p.model, in)
-	return p, tea.Batch(p.perform(effs), p.subscribe())
+	var cmds []app.Cmd
+	p.model, cmds = app.Update(p.model, in)
+	return p, tea.Batch(p.perform(cmds), p.subscribe())
 }
 
 func (p *program) View() tea.View {

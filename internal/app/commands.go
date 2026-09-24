@@ -1,9 +1,7 @@
 package app
 
-// Effect は Update が外殻に依頼する副作用（Elm の Cmd に相当）。
-// 関数ではなくデータで表すことで、Update の戻り値をテストでそのまま比較できる。
-// 各 Effect の結果として返る Msg は固定されている。
-type Effect interface{ isEffect() }
+// Cmd は Update が外殻に依頼する副作用。
+type Cmd interface{ isCmd() }
 
 // FetchViewer は認証中のユーザーを取得する。結果は GotViewer。
 type FetchViewer struct{}
@@ -20,7 +18,7 @@ type FetchOrgMembers struct{ Org string }
 // Quit はプログラムを終了する。
 type Quit struct{}
 
-func (FetchViewer) isEffect()     {}
-func (FetchCalendar) isEffect()   {}
-func (FetchOrgMembers) isEffect() {}
-func (Quit) isEffect()            {}
+func (FetchViewer) isCmd()     {}
+func (FetchCalendar) isCmd()   {}
+func (FetchOrgMembers) isCmd() {}
+func (Quit) isCmd()            {}

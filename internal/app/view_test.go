@@ -66,4 +66,4 @@ func TestView(t *testing.T) {
 	}
 }
 
-func must(m Model, _ []Effect) Model { return m }
+func must(m Model, _ []Cmd) Model { return m }

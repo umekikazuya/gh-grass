@@ -24,37 +24,37 @@ func gotCalendar(login string, r DateRange) GotCalendar {
 }
 
 // press は keys を順に押した結果と、最後のキーで返った副作用を返す。
-func press(t *testing.T, m Model, keys ...string) (Model, []Effect) {
+func press(t *testing.T, m Model, keys ...string) (Model, []Cmd) {
 	t.Helper()
-	var effs []Effect
+	var cmds []Cmd
 	for _, k := range keys {
-		m, effs = Update(m, KeyPressed{Key: k})
+		m, cmds = Update(m, KeyPressed{Key: k})
 	}
-	return m, effs
+	return m, cmds
 }
 
-func assertEffects(t *testing.T, got []Effect, want ...Effect) {
+func assertCmds(t *testing.T, got []Cmd, want ...Cmd) {
 	t.Helper()
 	if len(got) == 0 && len(want) == 0 {
 		return
 	}
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("effects = %#v, want %#v", got, want)
+		t.Errorf("cmds = %#v, want %#v", got, want)
 	}
 }
 
 // started は起動して自分（octocat）の 1 年分を取得し終えた状態を返す。
 func started(t *testing.T) Model {
 	t.Helper()
-	m, effs := Init(Flags{Today: today})
-	assertEffects(t, effs, FetchViewer{})
+	m, cmds := Init(Flags{Today: today})
+	assertCmds(t, cmds, FetchViewer{})
 
-	m, effs = Update(m, GotViewer{Login: "octocat"})
+	m, cmds = Update(m, GotViewer{Login: "octocat"})
 	year := fetchRangeEnding(today)
-	assertEffects(t, effs, FetchCalendar{Login: "octocat", Range: year})
+	assertCmds(t, cmds, FetchCalendar{Login: "octocat", Range: year})
 
-	m, effs = Update(m, gotCalendar("octocat", year))
-	assertEffects(t, effs)
+	m, cmds = Update(m, gotCalendar("octocat", year))
+	assertCmds(t, cmds)
 	return m
 }
 
@@ -98,12 +98,12 @@ func TestDateNavigation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			m, effs := press(t, started(t), tt.keys...)
+			m, cmds := press(t, started(t), tt.keys...)
 			if m.selected != tt.want {
 				t.Errorf("selected = %s, want %s", m.selected, tt.want)
 			}
 			// 1 年分を取得済みなので、この範囲の移動では通信しない。
-			assertEffects(t, effs)
+			assertCmds(t, cmds)
 		})
 	}
 }
@@ -115,16 +115,16 @@ func TestFetchOlderYear(t *testing.T) {
 	m.selected = NewDate(2025, time.October, 10)
 
 	// 表示期間（2025-09-07〜）が取得済みの範囲（2025-09-25〜）からはみ出すので、その前の 1 年分を取りに行く。
-	m, effs := press(t, m, "up")
+	m, cmds := press(t, m, "up")
 	older := fetchRangeEnding(NewDate(2025, time.September, 24))
-	assertEffects(t, effs, FetchCalendar{Login: "octocat", Range: older})
+	assertCmds(t, cmds, FetchCalendar{Login: "octocat", Range: older})
 
 	// 取得中は重ねて依頼しない。
-	m, effs = press(t, m, "up")
-	assertEffects(t, effs)
+	m, cmds = press(t, m, "up")
+	assertCmds(t, cmds)
 
-	m, effs = Update(m, gotCalendar("octocat", older))
-	assertEffects(t, effs)
+	m, cmds = Update(m, gotCalendar("octocat", older))
+	assertCmds(t, cmds)
 	if got := m.calendars["octocat"].Range; got != (DateRange{From: older.From, To: today}) {
 		t.Errorf("merged range = %v", got)
 	}
@@ -133,30 +133,30 @@ func TestFetchOlderYear(t *testing.T) {
 func TestShowUser(t *testing.T) {
 	t.Parallel()
 
-	m, effs := press(t, started(t), "u", "b", "o", "x", "backspace", "b")
-	assertEffects(t, effs)
+	m, cmds := press(t, started(t), "u", "b", "o", "x", "backspace", "b")
+	assertCmds(t, cmds)
 	if o, ok := m.overlay.(userInput); !ok || o.text != "bob" {
 		t.Fatalf("overlay = %#v", m.overlay)
 	}
 
-	m, effs = press(t, m, "enter")
+	m, cmds = press(t, m, "enter")
 	bobYear := fetchRangeEnding(today)
-	assertEffects(t, effs, FetchCalendar{Login: "bob", Range: bobYear})
+	assertCmds(t, cmds, FetchCalendar{Login: "bob", Range: bobYear})
 	if m.login != "bob" || m.overlay != nil {
 		t.Errorf("login = %q, overlay = %#v", m.login, m.overlay)
 	}
 
 	// m で自分に戻る。自分のデータは取得済みなので通信しない。
-	m, effs = press(t, m, "m")
-	assertEffects(t, effs)
+	m, cmds = press(t, m, "m")
+	assertCmds(t, cmds)
 	if m.login != "octocat" {
 		t.Errorf("login = %q, want octocat", m.login)
 	}
 
 	// 切り替えた後に届いた bob の結果もキャッシュされ、次に bob を開いたときは通信しない。
 	m, _ = Update(m, gotCalendar("bob", bobYear))
-	_, effs = press(t, m, "u", "b", "o", "b", "enter")
-	assertEffects(t, effs)
+	_, cmds = press(t, m, "u", "b", "o", "b", "enter")
+	assertCmds(t, cmds)
 }
 
 func TestUserInputKeys(t *testing.T) {
@@ -164,16 +164,16 @@ func TestUserInputKeys(t *testing.T) {
 
 	t.Run("入力中の q や h は文字として扱う", func(t *testing.T) {
 		t.Parallel()
-		m, effs := press(t, started(t), "u", "q", "h")
-		assertEffects(t, effs)
+		m, cmds := press(t, started(t), "u", "q", "h")
+		assertCmds(t, cmds)
 		if o, ok := m.overlay.(userInput); !ok || o.text != "qh" {
 			t.Errorf("overlay = %#v", m.overlay)
 		}
 	})
 	t.Run("空のまま enter しても何もしない", func(t *testing.T) {
 		t.Parallel()
-		m, effs := press(t, started(t), "u", "enter")
-		assertEffects(t, effs)
+		m, cmds := press(t, started(t), "u", "enter")
+		assertCmds(t, cmds)
 		if _, ok := m.overlay.(userInput); !ok {
 			t.Errorf("overlay = %#v", m.overlay)
 		}
@@ -187,16 +187,16 @@ func TestUserInputKeys(t *testing.T) {
 	})
 	t.Run("ctrl+c は入力中でも終了する", func(t *testing.T) {
 		t.Parallel()
-		_, effs := press(t, started(t), "u", "ctrl+c")
-		assertEffects(t, effs, Quit{})
+		_, cmds := press(t, started(t), "u", "ctrl+c")
+		assertCmds(t, cmds, Quit{})
 	})
 }
 
 func TestMemberPicker(t *testing.T) {
 	t.Parallel()
 
-	m, effs := press(t, started(t), "o", "a", "c", "m", "e", "enter")
-	assertEffects(t, effs, FetchOrgMembers{Org: "acme"})
+	m, cmds := press(t, started(t), "o", "a", "c", "m", "e", "enter")
+	assertCmds(t, cmds, FetchOrgMembers{Org: "acme"})
 	if len(Subscriptions(m)) == 0 {
 		t.Error("should subscribe to ticks while fetching members")
 	}
@@ -214,8 +214,8 @@ func TestMemberPicker(t *testing.T) {
 	}
 
 	m, _ = press(t, m, "down", "down") // 末尾で止まる
-	m, effs = press(t, m, "enter")
-	assertEffects(t, effs, FetchCalendar{Login: "carol", Range: fetchRangeEnding(today)})
+	m, cmds = press(t, m, "enter")
+	assertCmds(t, cmds, FetchCalendar{Login: "carol", Range: fetchRangeEnding(today)})
 	if m.login != "carol" || m.overlay != nil {
 		t.Errorf("login = %q, overlay = %#v", m.login, m.overlay)
 	}
@@ -232,12 +232,12 @@ func TestCalendarError(t *testing.T) {
 	}
 
 	// エラーの間は、日付を動かしても取り直さない。
-	m, effs := press(t, m, "left")
-	assertEffects(t, effs)
+	m, cmds := press(t, m, "left")
+	assertCmds(t, cmds)
 
 	// r でやり直す。
-	_, effs = press(t, m, "r")
-	assertEffects(t, effs, FetchCalendar{Login: "ghost", Range: fetchRangeEnding(today)})
+	_, cmds = press(t, m, "r")
+	assertCmds(t, cmds, FetchCalendar{Login: "ghost", Range: fetchRangeEnding(today)})
 
 	// 表示していないユーザーのエラーは出さない。
 	m, _ = press(t, started(t), "u", "b", "o", "b", "enter", "m")
@@ -255,23 +255,23 @@ func TestViewerError(t *testing.T) {
 	if m.viewer.State() != Failure {
 		t.Fatalf("viewer state = %v", m.viewer.State())
 	}
-	_, effs := press(t, m, "r")
-	assertEffects(t, effs, FetchViewer{})
+	_, cmds := press(t, m, "r")
+	assertCmds(t, cmds, FetchViewer{})
 }
 
 func TestQuitAndHelp(t *testing.T) {
 	t.Parallel()
 
-	_, effs := press(t, started(t), "q")
-	assertEffects(t, effs, Quit{})
+	_, cmds := press(t, started(t), "q")
+	assertCmds(t, cmds, Quit{})
 
 	m, _ := press(t, started(t), "?")
 	if _, ok := m.overlay.(helpOverlay); !ok {
 		t.Fatalf("overlay = %#v", m.overlay)
 	}
 	// ヘルプを開いている間の q はヘルプを閉じる。
-	m, effs = press(t, m, "q")
-	assertEffects(t, effs)
+	m, cmds = press(t, m, "q")
+	assertCmds(t, cmds)
 	if m.overlay != nil {
 		t.Errorf("overlay = %#v", m.overlay)
 	}
