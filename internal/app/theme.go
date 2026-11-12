@@ -3,7 +3,7 @@ package app
 import (
 	"image/color"
 
-	"charm.land/lipgloss/v2"
+	lipgloss "charm.land/lipgloss/v2"
 )
 
 // grassPalette は GitHub のコントリビューショングラフ相当の緑の濃淡（Intensity の 0〜4 に対応）。
