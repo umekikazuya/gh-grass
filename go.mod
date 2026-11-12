@@ -1,21 +1,19 @@
 module github.com/umekikazuya/gh-grass
 
-go 1.27.0
-
-toolchain go1.27.1
+go 1.27.4
 
 require (
-	charm.land/bubbletea/v2 v2.0.9
-	charm.land/lipgloss/v2 v2.0.6
-	github.com/charmbracelet/x/ansi v0.11.8
-	github.com/cli/go-gh/v2 v2.16.1
+	charm.land/bubbletea/v2 v2.1.1
+	charm.land/lipgloss/v2 v2.1.0
+	github.com/charmbracelet/x/ansi v0.11.9
+	github.com/cli/go-gh/v2 v2.17.0
 	github.com/spf13/cobra v1.10.2
 )
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20261023060817-a45b7c86333f // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
@@ -28,16 +26,16 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
-	github.com/mattn/go-runewidth v0.0.30 // indirect
+	github.com/mattn/go-runewidth v0.0.31 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/thlib/go-timezone-local v0.0.8 // indirect
-	github.com/xo/terminfo v1.0.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/term v0.45.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
+	github.com/spf13/pflag v1.1.0 // indirect
+	github.com/thlib/go-timezone-local v0.0.9 // indirect
+	github.com/xo/terminfo v1.3.1 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/term v0.48.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
